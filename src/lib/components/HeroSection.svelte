@@ -34,7 +34,10 @@
     </div>
 
     <div class="space-y-3">
-      <h1 class="max-w-4xl text-4xl font-bold leading-none md:text-6xl">Aether FX Optimizer</h1>
+      <div class="flex items-center gap-4">
+        <img src="/logo.png" alt="Aether FX Optimizer Logo" class="h-16 w-16" />
+        <h1 class="max-w-4xl text-4xl font-bold leading-none md:text-6xl">Aether FX Optimizer</h1>
+      </div>
       <p class="max-w-3xl text-base leading-7 text-[color:var(--muted)] md:text-lg">
         Diagnose Adobe After Effects installs, clear versioned caches, pin AE to the
         high-performance GPU profile, review startup noise, and quickly apply a safer CPU power

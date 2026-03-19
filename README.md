@@ -65,18 +65,14 @@ Tag `v1.0.0`, `v1.0.1`, etc., and the workflow will recreate release assets for 
 - Keep the hero action bar handy for power-cap toggles and workspace-wide cache cleanup, especially before sending renders to After Effects.
 - The Everything status card now ships its own “Auto install Everything” controls — pick x86/x64 installers or portable ZIPs and the app will download, open, and (when possible) launch them inside `%TEMP%`.
  
-## Marketing assets (for README or hero decks)
+## Marketing assets
 
-Drop any promotional assets you want to bundle under `static/` (for example, `static/product-banner.mp4` and `static/aetherfx-logo.png`). Once they live there they will be copied into the Tauri build and exposed through the same `public` path SvelteKit uses. You can use these assets directly in the README or documentation using markdown like:
-
-```md
-![Aether FX Optimizer mark](./static/aetherfx-logo.png)
+![Aether FX Optimizer logo](./static/logo.png)
 
 <video controls loop muted width="640" height="360">
   <source src="./static/product-banner.mp4" type="video/mp4" />
   Your browser does not support the video tag.
 </video>
-```
 
 Use the same 16:9 hero footage and neon gradient mark to highlight how the tool brings Everything indexing, session mode, GPU tuning, and cache hygiene into one dashboard.
 
