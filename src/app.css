@@ -1,0 +1,65 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #06131a;
+  --bg-soft: #0d1d26;
+  --panel: rgba(12, 25, 34, 0.8);
+  --panel-strong: rgba(18, 34, 46, 0.96);
+  --line: rgba(157, 217, 255, 0.12);
+  --line-strong: rgba(157, 217, 255, 0.24);
+  --text: #eef7fb;
+  --muted: #8ca4b1;
+  --accent: #7cf7ca;
+  --accent-2: #7cbcff;
+  --warn: #ffd87c;
+  --danger: #ff8f7c;
+  --shadow: 0 24px 60px rgba(0, 0, 0, 0.38);
+  color: var(--text);
+  background:
+    radial-gradient(circle at top left, rgba(124, 188, 255, 0.18), transparent 28%),
+    radial-gradient(circle at top right, rgba(124, 247, 202, 0.16), transparent 24%),
+    linear-gradient(180deg, #081219 0%, #061018 42%, #04090d 100%);
+  font-family: "Space Grotesk", sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+::selection {
+  background: rgba(124, 247, 202, 0.25);
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(16px);
+}
+
+.panel-strong {
+  background: var(--panel-strong);
+}
+
+.mono {
+  font-family: "IBM Plex Mono", monospace;
+}
