@@ -11,8 +11,8 @@
   let { items, totalCount, busy, onDisable }: Props = $props();
 </script>
 
-<div class="panel rounded-[28px] p-5 md:p-6">
-  <div class="mb-5 flex items-center justify-between gap-4">
+<div class="panel rounded-[28px] p-4 md:p-5">
+  <div class="mb-4 flex items-center justify-between gap-4">
     <div>
       <p class="mono text-[11px] uppercase tracking-[0.24em] text-[color:var(--muted)]">Startup noise</p>
       <h2 class="mt-2 text-2xl font-semibold">Sorted by likely impact</h2>
@@ -20,9 +20,9 @@
     <div class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs">{totalCount} items</div>
   </div>
 
-  <div class="grid gap-3">
+  <div class="grid gap-3 max-h-[360px] overflow-y-auto pr-1">
     {#each items as item}
-      <article class="rounded-[22px] border border-white/8 bg-white/4 p-4">
+      <article class="rounded-[22px] border border-white/8 bg-white/4 p-3">
         <div class="flex items-start justify-between gap-3">
           <div class="min-w-0">
             <div class="flex flex-wrap items-center gap-2">

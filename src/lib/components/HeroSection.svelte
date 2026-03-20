@@ -5,8 +5,10 @@
     warningMessages: string[];
     errorMessage: string;
     canClearCaches: boolean;
+    globalCacheCount: number;
     onRefresh: () => void;
     onClearAllCaches: () => void;
+    onPurgeGlobalCaches: () => void;
     onApplyPower: (mode: "stable" | "performance") => void;
   }
 
@@ -16,29 +18,31 @@
     warningMessages,
     errorMessage,
     canClearCaches,
+    globalCacheCount,
     onRefresh,
     onClearAllCaches,
+    onPurgeGlobalCaches,
     onApplyPower,
   }: Props = $props();
 </script>
 
-<section class="panel panel-strong overflow-hidden rounded-[30px] border-white/10 px-6 py-7 md:px-8">
-  <div class="space-y-5">
+<section class="panel panel-strong overflow-hidden rounded-[30px] border-white/10 px-6 py-6 md:px-8">
+  <div class="space-y-4">
     <div class="flex flex-wrap items-center gap-3">
-      <span class="mono rounded-full border border-[color:var(--line-strong)] bg-white/5 px-3 py-1 text-[11px] uppercase tracking-[0.28em] text-[color:var(--accent)]">
+      <span class="mono rounded-full border border-(--line-strong) bg-white/5 px-3 py-1 text-[11px] uppercase tracking-[0.28em] text-(--accent)">
         native ae toolkit
       </span>
-      <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-[color:var(--muted)]">
+      <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-(--muted)">
         Tauri + Svelte + Tailwind + Windows auto-detection
       </span>
     </div>
 
     <div class="space-y-3">
       <div class="flex items-center gap-4">
-        <img src="/logo.png" alt="Aether FX Optimizer Logo" class="h-16 w-16" />
+        <img src="/logo_square.png" alt="Aether FX Optimizer Logo" class="h-16 w-16 object-contain" />
         <h1 class="max-w-4xl text-4xl font-bold leading-none md:text-6xl">Aether FX Optimizer</h1>
       </div>
-      <p class="max-w-3xl text-base leading-7 text-[color:var(--muted)] md:text-lg">
+      <p class="max-w-3xl text-sm leading-6 text-(--muted) md:text-md">
         Diagnose Adobe After Effects installs, clear versioned caches, pin AE to the
         high-performance GPU profile, review startup noise, and quickly apply a safer CPU power
         cap when stability matters more than peak clocks.
@@ -46,7 +50,7 @@
     </div>
 
     <div class="flex flex-wrap gap-3">
-      <button class="rounded-full bg-[color:var(--accent)] px-5 py-3 text-sm font-semibold text-slate-950 transition hover:scale-[1.01] disabled:opacity-60" onclick={onRefresh} disabled={loading}>
+      <button class="rounded-full bg-(--accent) px-5 py-3 text-sm font-semibold text-slate-950 transition hover:scale-[1.01] disabled:opacity-60" onclick={onRefresh} disabled={loading}>
         {loading ? "Scanning..." : "Refresh scan"}
       </button>
       <button class="rounded-full border border-white/10 bg-white/6 px-5 py-3 text-sm font-semibold transition hover:border-white/20 hover:bg-white/10 disabled:opacity-60" onclick={onClearAllCaches} disabled={!canClearCaches || busy === "cache-all"}>
@@ -58,12 +62,15 @@
       <button class="rounded-full border border-white/10 bg-white/6 px-5 py-3 text-sm font-semibold transition hover:border-white/20 hover:bg-white/10 disabled:opacity-60" onclick={() => onApplyPower("performance")} disabled={busy === "power-performance"}>
         {busy === "power-performance" ? "Restoring..." : "Restore 100% cap"}
       </button>
+      <button class="rounded-full border border-(--accent)/30 bg-(--accent)/10 px-5 py-3 text-sm font-semibold text-(--accent) transition hover:bg-(--accent)/20 disabled:opacity-60" onclick={onPurgeGlobalCaches} disabled={globalCacheCount === 0 || busy === "purge-global"}>
+        {busy === "purge-global" ? "Purging..." : `Purge global media cache (${globalCacheCount})`}
+      </button>
     </div>
 
     {#if warningMessages.length}
       <div class="grid gap-3">
         {#each warningMessages as warning}
-          <div class="rounded-2xl border border-[color:var(--danger)]/35 bg-[color:rgba(255,143,124,0.08)] px-4 py-3 text-sm text-[color:var(--danger)]">
+          <div class="rounded-2xl border border-(--danger)/35 bg-[color:rgba(255,143,124,0.08)] px-4 py-3 text-sm text-(--danger)">
             {warning}
           </div>
         {/each}
@@ -71,7 +78,7 @@
     {/if}
 
     {#if errorMessage}
-      <div class="rounded-2xl border border-[color:var(--danger)]/35 bg-[color:rgba(255,143,124,0.08)] px-4 py-3 text-sm text-[color:var(--danger)]">
+      <div class="rounded-2xl border border-(--danger)/35 bg-[color:rgba(255,143,124,0.08)] px-4 py-3 text-sm text-(--danger)">
         {errorMessage}
       </div>
     {/if}

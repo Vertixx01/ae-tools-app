@@ -30,7 +30,8 @@ Everything works together to keep After Effects fast and repeatable across machi
 
 ```bash
 bun install
-bun run tauri dev
+# Use the local config if bun is not in your global path
+bun run tauri:local dev
 ```
 
 1. Open `http://localhost:1420` after the dev server starts.

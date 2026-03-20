@@ -8,6 +8,7 @@ export interface PluginEntry {
   kind: "binary" | "folder";
   sizeMb: number;
   hasSignature: boolean;
+  isEnabled: boolean;
   duplicateCount: number;
 }
 
@@ -56,12 +57,18 @@ export interface Recommendation {
   actionKind: string;
 }
 
+export interface EverythingStatus {
+  available: boolean;
+  esPath: string;
+}
+
 export interface ScanSnapshot {
   system: SystemOverview;
   installs: AfterEffectsInstall[];
   startupItems: StartupItem[];
   recommendations: Recommendation[];
   warnings: string[];
+  globalCaches: string[];
 }
 
 export interface ActionResult {
@@ -78,6 +85,8 @@ export interface ProjectEntry {
   modified: string;
   sizeMb: number;
   drive: string;
+  autoSaveCount: number;
+  autoSaveSizeMb: number;
 }
 
 export interface ProjectIndexSnapshot {
@@ -89,12 +98,54 @@ export interface ProjectIndexSnapshot {
   skippedRoots: string[];
 }
 
-export interface EverythingStatus {
-  available: boolean;
-  esPath?: string;
-}
-
 export interface SessionStatus {
   active: boolean;
+  startTime: string | null;
   disabledItems: string[];
+}
+
+export interface RenderProcess {
+  pid: number;
+  name: string;
+  cpuUsage: number;
+  memoryMb: number;
+  isRendering: boolean;
+}
+
+export interface RenderStatus {
+  isActive: boolean;
+  processes: RenderProcess[];
+  totalCpu: number;
+  totalMemoryMb: number;
+}
+
+export interface FontEntry {
+  name: string;
+  family: string;
+  style: string | null;
+  isInstalled: boolean;
+}
+
+export interface FontAuditResult {
+  success: boolean;
+  projectPath: string;
+  fonts: FontEntry[];
+  missingCount: number;
+}
+
+export interface ExpressionError {
+  timestamp: string;
+  project?: string;
+  composition: string;
+  layer: string;
+  property: string;
+  message: string;
+  version: string;
+}
+
+export interface ExpressionAuditResult {
+  success: boolean;
+  projectPath: string;
+  errors: ExpressionError[];
+  riskyCount: number;
 }

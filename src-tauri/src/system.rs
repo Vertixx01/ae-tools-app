@@ -137,3 +137,19 @@ pub fn collect_warnings(installs: &[AfterEffectsInstall]) -> Vec<String> {
     }
     warnings
 }
+
+pub fn apply_power_profile_logic(mode: &str) -> Result<crate::models::ActionResult, String> {
+    let script = match mode {
+        "stable" => "powercfg /setactive SCHEME_BALANCED; powercfg /setacvalueindex SCHEME_BALANCED SUB_PROCESSOR PROCTHROTTLEMAX 99; powercfg /setactive SCHEME_BALANCED; 'ok'",
+        "performance" => "powercfg /setactive SCHEME_MIN; powercfg /setacvalueindex SCHEME_MIN SUB_PROCESSOR PROCTHROTTLEMAX 100; powercfg /setactive SCHEME_MIN; 'ok'",
+        _ => return Err("Invalid power mode".to_string()),
+    };
+
+    crate::util::powershell(script)?;
+
+    Ok(crate::models::ActionResult {
+        success: true,
+        message: format!("Applied {mode} power profile."),
+        details: Vec::new(),
+    })
+}

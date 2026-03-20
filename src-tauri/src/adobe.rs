@@ -94,6 +94,7 @@ fn push_plugin_file(target: &mut Vec<PluginEntry>, path: &Path, source: &str, ki
         return;
     };
 
+    let is_enabled = !name.to_lowercase().ends_with(".disabled");
     let size_mb = if kind == "folder" {
         dir_size_mb(path)
     } else {
@@ -104,12 +105,13 @@ fn push_plugin_file(target: &mut Vec<PluginEntry>, path: &Path, source: &str, ki
 
     target.push(PluginEntry {
         id: sanitize_id(&format!("{source}-{name}-{}", normalize(path))),
-        name: name.to_string(),
+        name: name.replace(".disabled", ""),
         path: normalize(path),
         source: source.to_string(),
         kind: kind.to_string(),
         size_mb,
-        has_signature: check_signature(path) && kind == "binary",
+        has_signature: check_signature(path) && kind == "binary" && is_enabled,
+        is_enabled,
         duplicate_count: 0,
     });
 }
@@ -143,7 +145,8 @@ fn collect_plugins(plugin_roots: &[PathBuf]) -> Vec<PluginEntry> {
                     .and_then(|value| value.to_str())
                     .unwrap_or_default()
                     .to_ascii_lowercase();
-                if ext == "aex" || ext == "dll" {
+                
+                if ext == "aex" || ext == "dll" || path.to_string_lossy().to_lowercase().ends_with(".aex.disabled") {
                     push_plugin_file(&mut plugins, &path, source, "binary");
                 }
             }
@@ -199,7 +202,7 @@ fn plugin_roots_for_install(install_root: &Path) -> Vec<PathBuf> {
     roots
 }
 
-pub fn discover_after_effects() -> Vec<AfterEffectsInstall> {
+pub fn find_ae_installs() -> Vec<AfterEffectsInstall> {
     let running = detect_afterfx_running();
     let performance_map = performance_mode_map();
     let roaming_versions = env_path("APPDATA")
@@ -317,4 +320,26 @@ pub fn set_performance_mode(exe_path: String, mode: String) -> Result<ActionResu
         },
         details: vec![exe_path],
     })
+}
+
+pub fn discover_global_caches() -> Vec<String> {
+    let mut paths = Vec::new();
+    if let Some(appdata) = env_path("APPDATA") {
+        let common = appdata.join("Adobe").join("Common");
+        let candidates = [
+            "Media Cache",
+            "Media Cache Files",
+            "Peak Files",
+            "PTX",
+            "Team Projects Cache",
+        ];
+
+        for candidate in candidates {
+            let path = common.join(candidate);
+            if path.exists() {
+                paths.push(normalize(&path));
+            }
+        }
+    }
+    paths
 }

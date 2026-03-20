@@ -63,3 +63,26 @@ select {
 .mono {
   font-family: "IBM Plex Mono", monospace;
 }
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(157, 217, 255, 0.1);
+  border-radius: 10px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
+  background-clip: content-box;
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(157, 217, 255, 0.1) transparent;
+}

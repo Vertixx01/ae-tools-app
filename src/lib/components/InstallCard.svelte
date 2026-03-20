@@ -7,9 +7,24 @@
     onSetPerformanceMode: (install: AfterEffectsInstall, mode: PerformanceMode) => void;
     onClearInstall: (kind: "cache" | "profile", install: AfterEffectsInstall) => void;
     onOpenPath: (path: string | null) => void;
+    onTogglePlugin: (install: AfterEffectsInstall, plugin: PluginEntry, enable: boolean) => void;
+    onInstallScript: (install: AfterEffectsInstall, scriptPath: string) => void;
   }
 
-  let { install, busy, onSetPerformanceMode, onClearInstall, onOpenPath }: Props = $props();
+  let { install, busy, onSetPerformanceMode, onClearInstall, onOpenPath, onTogglePlugin, onInstallScript }: Props = $props();
+  
+  import { open } from "@tauri-apps/plugin-dialog";
+
+  async function pickAndInstallScript() {
+    const selected = await open({
+        multiple: false,
+        filters: [{ name: "After Effects Script", extensions: ["jsx", "jsxbin"] }]
+    });
+    if (selected && !Array.isArray(selected)) {
+        onInstallScript(install, selected);
+    }
+  }
+
   let expanded = $state(false);
   let healthFilter = $state<"all" | "unsigned" | "duplicates">("all");
   let expandedSources = $state<Record<string, boolean>>({});
@@ -58,27 +73,27 @@
   }
 </script>
 
-<article class="rounded-[24px] border border-white/8 bg-white/4 p-4 md:p-5">
+<article class="rounded-[24px] border border-white/8 bg-white/4 p-3 md:p-4">
   <button
     class="flex w-full items-start justify-between gap-4 text-left"
     onclick={() => (expanded = !expanded)}
   >
-    <div class="space-y-2">
+    <div class="space-y-1">
       <div class="flex flex-wrap items-center gap-2">
         <span class="text-xl font-semibold">{install.displayName}</span>
-        <span class="mono rounded-full border border-white/10 bg-white/6 px-2 py-1 text-[10px] uppercase tracking-[0.16em] text-[color:var(--accent)]">
+        <span class="mono rounded-full border border-white/10 bg-white/6 px-2 py-1 text-[10px] uppercase tracking-[0.16em] text-(--accent)">
           v{install.versionHint}
         </span>
         <span class="rounded-full border border-white/10 bg-white/6 px-2 py-1 text-[10px] uppercase tracking-[0.16em]">
           {install.performanceMode}
         </span>
         {#if install.isRunning}
-          <span class="rounded-full border border-[color:var(--warn)]/35 bg-[color:rgba(255,216,124,0.08)] px-2 py-1 text-[10px] uppercase tracking-[0.16em] text-[color:var(--warn)]">
+          <span class="rounded-full border border-(--warn)/35 bg-(--warn)/8 px-2 py-1 text-[10px] uppercase tracking-[0.16em] text-(--warn)">
             running
           </span>
         {/if}
       </div>
-      <p class="text-sm text-[color:var(--muted)]">
+      <p class="text-sm text-(--muted)">
         {install.installRoot ?? "No install root detected."}
       </p>
     </div>
@@ -86,47 +101,47 @@
     <div class="flex items-center gap-3">
       <div class="grid gap-2 text-right text-sm">
         <div class="rounded-2xl border border-white/8 bg-white/4 px-3 py-2">
-          <span class="text-[color:var(--muted)]">Plugins:</span>
+          <span class="text-(--muted)">Plugins:</span>
           <span class="font-semibold">{install.plugins.length}</span>
         </div>
         <div class="rounded-2xl border border-white/8 bg-white/4 px-3 py-2">
-          <span class="text-[color:var(--muted)]">Caches:</span>
+          <span class="text-(--muted)">Caches:</span>
           <span class="font-semibold">{install.cachePaths.length}</span>
         </div>
       </div>
-      <span class="mono text-xs text-[color:var(--muted)]">{expanded ? "[-]" : "[+]"}</span>
+      <span class="mono text-xs text-(--muted)">{expanded ? "[-]" : "[+]"}</span>
     </div>
   </button>
 
   {#if expanded}
-    <div class="mt-5 grid gap-4">
+    <div class="mt-4 grid gap-4">
       <div class="grid gap-3 lg:grid-cols-[1fr_0.9fr]">
         <div class="rounded-2xl border border-white/8 bg-white/4 p-3">
-          <p class="text-xs uppercase tracking-[0.2em] text-[color:var(--muted)]">Executable</p>
+          <p class="text-xs uppercase tracking-[0.2em] text-(--muted)">Executable</p>
           <p class="mono mt-2 break-all text-xs leading-6">{install.exePath ?? "Not found"}</p>
         </div>
 
         <div class="rounded-2xl border border-white/8 bg-white/4 p-3">
-          <p class="text-xs uppercase tracking-[0.2em] text-[color:var(--muted)]">
+          <p class="text-xs uppercase tracking-[0.2em] text-(--muted)">
             Performance mode
           </p>
           <div class="mt-3 flex flex-wrap gap-2">
             <button
-              class={`rounded-full px-3 py-2 text-xs font-semibold transition ${install.performanceMode === "balanced" ? "bg-[color:var(--accent-2)] text-slate-950" : "border border-white/10 bg-white/6 hover:border-white/20 hover:bg-white/10"}`}
+              class={`rounded-full px-3 py-2 text-xs font-semibold transition ${install.performanceMode === "balanced" ? "bg-(--accent-2) text-slate-950" : "border border-white/10 bg-white/6 hover:border-white/20 hover:bg-white/10"}`}
               onclick={() => onSetPerformanceMode(install, "balanced")}
               disabled={!install.exePath || busy === `perf-${install.id}`}
             >
               Balanced
             </button>
             <button
-              class={`rounded-full px-3 py-2 text-xs font-semibold transition ${install.performanceMode === "gpu" ? "bg-[color:var(--accent)] text-slate-950" : "border border-white/10 bg-white/6 hover:border-white/20 hover:bg-white/10"}`}
+              class={`rounded-full px-3 py-2 text-xs font-semibold transition ${install.performanceMode === "gpu" ? "bg-(--accent) text-slate-950" : "border border-white/10 bg-white/6 hover:border-white/20 hover:bg-white/10"}`}
               onclick={() => onSetPerformanceMode(install, "gpu")}
               disabled={!install.exePath || busy === `perf-${install.id}`}
             >
               GPU priority
             </button>
             <button
-              class={`rounded-full px-3 py-2 text-xs font-semibold transition ${install.performanceMode === "cpu" ? "bg-[color:var(--warn)] text-slate-950" : "border border-white/10 bg-white/6 hover:border-white/20 hover:bg-white/10"}`}
+              class={`rounded-full px-3 py-2 text-xs font-semibold transition ${install.performanceMode === "cpu" ? "bg-(--warn) text-slate-950" : "border border-white/10 bg-white/6 hover:border-white/20 hover:bg-white/10"}`}
               onclick={() => onSetPerformanceMode(install, "cpu")}
               disabled={!install.exePath || busy === `perf-${install.id}`}
             >
@@ -138,8 +153,8 @@
 
       <div class="grid gap-3 lg:grid-cols-2">
         <div class="rounded-2xl border border-white/8 bg-white/4 p-3">
-          <p class="text-xs uppercase tracking-[0.2em] text-[color:var(--muted)]">Plugin roots</p>
-          <div class="mt-2 space-y-1 text-xs leading-6 text-[color:var(--muted)]">
+          <p class="text-xs uppercase tracking-[0.2em] text-(--muted)">Plugin roots</p>
+          <div class="mt-2 space-y-1 text-xs leading-6 text-(--muted)">
             {#if install.pluginPaths.length}
               {#each install.pluginPaths as folder}
                 <p class="mono break-all">{folder}</p>
@@ -151,10 +166,10 @@
         </div>
 
         <div class="rounded-2xl border border-white/8 bg-white/4 p-3">
-          <p class="text-xs uppercase tracking-[0.2em] text-[color:var(--muted)]">
+          <p class="text-xs uppercase tracking-[0.2em] text-(--muted)">
             Profiles and cache folders
           </p>
-          <div class="mt-2 space-y-1 text-xs leading-6 text-[color:var(--muted)]">
+          <div class="mt-2 space-y-1 text-xs leading-6 text-(--muted)">
             {#if install.profilePaths.length || install.cachePaths.length}
               {#each [...install.profilePaths, ...install.cachePaths] as folder}
                 <p class="mono break-all">{folder}</p>
@@ -195,7 +210,7 @@
         <div class="mt-4 space-y-3">
           {#if groupedPlugins.length}
             {#each groupedPlugins as group}
-              <div class="rounded-2xl border border-white/6 bg-black/5 p-3">
+              <div class="rounded-2xl border border-white/6 bg-black/5 p-2">
                 <button
                   class="flex w-full items-center justify-between gap-3 text-sm font-semibold text-left"
                   onclick={() => toggleSource(group.source)}
@@ -214,23 +229,43 @@
                 </button>
                 {#if expandedSources[group.source] ?? true}
                   <div class="mt-3 grid gap-2">
-                    {#each group.plugins.slice(0, 12) as plugin}
-                      <div class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/6 bg-white/6 px-3 py-2 text-sm">
+                    {#each group.plugins.slice(0, 24) as plugin}
+                      <div class={`flex flex-wrap items-center justify-between gap-3 rounded-2xl border px-3 py-2 text-sm transition ${plugin.isEnabled ? "border-white/6 bg-white/6" : "border-white/4 bg-white/2 opacity-60"}`}>
                         <div class="min-w-0">
-                          <p class="truncate font-medium">{plugin.name}</p>
+                          <div class="flex items-center gap-2">
+                            <p class="truncate font-medium">{plugin.name}</p>
+                            {#if !plugin.isEnabled}
+                              <span class="rounded-full bg-white/10 px-1.5 py-0.5 text-[9px] uppercase tracking-wider text-[color:var(--muted)]">disabled</span>
+                            {/if}
+                          </div>
                           <p class="mono truncate text-xs text-[color:var(--muted)]">{plugin.path}</p>
                         </div>
-                        <div class="flex flex-wrap items-center gap-1 text-xs">
-                          <span class="rounded-full border border-white/10 bg-white/8 px-2 py-1 uppercase tracking-[0.14em]">{plugin.source}</span>
-                          <span class="rounded-full border border-white/10 bg-white/8 px-2 py-1">{plugin.sizeMb} MB</span>
-                          <span class={`rounded-full px-2 py-1 text-[10px] uppercase tracking-[0.14em] ${plugin.hasSignature ? "border border-white/10 bg-white/6" : "border border-[color:var(--warn)] bg-[color:rgba(255,216,124,0.06)] text-[color:var(--warn)]"}`}>
-                            {plugin.hasSignature ? "signed" : "unsigned"}
-                          </span>
+                        <div class="flex flex-wrap items-center gap-2 text-xs">
+                          <div class="flex items-center gap-1">
+                             <span class="rounded-full border border-white/10 bg-white/8 px-2 py-1 uppercase tracking-[0.14em]">{plugin.source}</span>
+                            <span class="rounded-full border border-white/10 bg-white/8 px-2 py-1">{plugin.sizeMb} MB</span>
+                            <span class={`rounded-full px-2 py-1 text-[10px] uppercase tracking-[0.14em] ${plugin.hasSignature ? "border border-white/10 bg-white/6" : "border border-[color:var(--warn)] bg-[color:rgba(255,216,124,0.06)] text-[color:var(--warn)]"}`}>
+                              {plugin.hasSignature ? "signed" : "unsigned"}
+                            </span>
+                            {#if plugin.duplicateCount > 1}
+                              <span class="rounded-full border border-(--warn) bg-(--warn)/10 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-(--warn)">
+                                Duplicate ({plugin.duplicateCount})
+                              </span>
+                            {/if}
+                          </div>
+                          
+                          <button
+                            class={`rounded-full px-3 py-1 font-semibold transition ${plugin.isEnabled ? "bg-white/10 text-white hover:bg-[color:var(--danger)] hover:text-slate-950" : "bg-[color:var(--accent)] text-slate-950 hover:bg-white/20 hover:text-white"}`}
+                            onclick={() => onTogglePlugin(install, plugin, !plugin.isEnabled)}
+                            disabled={busy === `toggle-${plugin.id}`}
+                          >
+                            {busy === `toggle-${plugin.id}` ? "..." : (plugin.isEnabled ? "Disable" : "Enable")}
+                          </button>
                         </div>
                       </div>
                     {/each}
-                    {#if group.plugins.length > 12}
-                      <p class="text-xs text-[color:var(--muted)]">Showing 12 of {group.plugins.length} results for this source.</p>
+                    {#if group.plugins.length > 24}
+                      <p class="text-xs text-[color:var(--muted)]">Showing 24 of {group.plugins.length} results for this source.</p>
                     {/if}
                   </div>
                 {/if}
@@ -263,6 +298,13 @@
           disabled={!install.installRoot}
         >
           Open install folder
+        </button>
+        <button
+          class="rounded-full bg-[color:var(--accent)] px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-white hover:text-slate-950 disabled:opacity-60"
+          onclick={pickAndInstallScript}
+          disabled={busy === `install-script-${install.id}`}
+        >
+          {busy === `install-script-${install.id}` ? "Installing..." : "Install Script"}
         </button>
       </div>
     </div>

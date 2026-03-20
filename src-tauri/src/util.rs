@@ -79,3 +79,48 @@ pub fn version_key(label: &str) -> String {
 pub fn powershell_escape(input: &str) -> String {
     input.replace('\'', "''")
 }
+
+pub fn clear_folders(paths: &[String]) -> Result<crate::models::ActionResult, String> {
+    let mut cleared = Vec::new();
+    let mut errors = Vec::new();
+
+    for path_str in paths {
+        let path = Path::new(path_str);
+        if !path.exists() {
+            continue;
+        }
+
+        if path.is_dir() {
+            if let Ok(entries) = std::fs::read_dir(path) {
+                for entry in entries.flatten() {
+                    let child = entry.path();
+                    if child.is_dir() {
+                        if let Err(e) = std::fs::remove_dir_all(&child) {
+                            errors.push(format!("Failed to delete folder {}: {}", child.display(), e));
+                        } else {
+                            cleared.push(normalize(&child));
+                        }
+                    } else if let Err(e) = std::fs::remove_file(&child) {
+                        errors.push(format!("Failed to delete file {}: {}", child.display(), e));
+                    } else {
+                        cleared.push(normalize(&child));
+                    }
+                }
+            }
+        }
+    }
+
+    if errors.is_empty() {
+        Ok(crate::models::ActionResult {
+            success: true,
+            message: format!("Cleared {} items across {} directories.", cleared.len(), paths.len()),
+            details: cleared,
+        })
+    } else {
+        Ok(crate::models::ActionResult {
+            success: false,
+            message: format!("Encountered {} errors during cleanup.", errors.len()),
+            details: errors,
+        })
+    }
+}

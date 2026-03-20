@@ -1,15 +1,13 @@
-use crate::models::StartupItem;
+use crate::models::{StartupItem, SessionStatus};
 use crate::util::{env_path, normalize, powershell, powershell_escape};
 use serde::{Deserialize, Serialize};
 use std::{fs, path::PathBuf};
 
-#[allow(dead_code)]
 #[derive(Serialize, Deserialize)]
 struct SessionState {
     items: Vec<SessionItemData>,
 }
 
-#[allow(dead_code)]
 #[derive(Clone, Serialize, Deserialize)]
 struct SessionItemData {
     kind: String,
@@ -19,12 +17,6 @@ struct SessionItemData {
     temp_path: Option<String>,
 }
 
- #[allow(dead_code)]
- #[derive(Serialize)]
- pub struct SessionStatus {
-    pub active: bool,
-    pub disabled_items: Vec<String>,
-}
 
  #[allow(dead_code)]
  pub fn get_session_status() -> SessionStatus {

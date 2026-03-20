@@ -1,21 +1,95 @@
-use crate::models::{ActionResult, ProjectEntry, ProjectIndexSnapshot};
+use crate::models::{
+    ActionResult, EverythingStatus, ProjectEntry, ProjectIndexSnapshot,
+};
 use crate::util::{
     env_path, normalize, powershell, powershell_escape, powershell_json, sanitize_id,
 };
-use serde::Serialize;
 use std::{
     collections::BTreeSet,
-    env, fs,
+    env,
+    ffi::OsStr,
+    fs,
     path::{Path, PathBuf},
     process::Command,
     time::SystemTime,
 };
 
-#[allow(dead_code)]
-#[derive(Serialize)]
-pub struct EverythingStatus {
-    pub available: bool,
-    pub es_path: Option<String>,
+
+fn discover_auto_saves(project_path: &Path) -> (usize, f64) {
+    let Some(parent) = project_path.parent() else {
+        return (0, 0.0);
+    };
+    let auto_save_dir = parent.join("Adobe After Effects Auto-Save");
+    if !auto_save_dir.exists() || !auto_save_dir.is_dir() {
+        return (0, 0.0);
+    }
+
+    let mut count = 0;
+    let mut total_size = 0u64;
+
+    if let Ok(entries) = fs::read_dir(auto_save_dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_file() {
+                if let Some(ext) = path.extension().and_then(OsStr::to_str) {
+                    if ext.to_lowercase() == "aep" {
+                        count += 1;
+                        if let Ok(meta) = entry.metadata() {
+                            total_size += meta.len();
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    let size_mb = (total_size as f64 / (1024.0 * 1024.0) * 10.0).round() / 10.0;
+    (count, size_mb)
+}
+
+pub fn purge_auto_saves(project_path: String) -> Result<ActionResult, String> {
+    let path = PathBuf::from(&project_path);
+    let Some(parent) = path.parent() else {
+        return Err("Invalid project path".to_string());
+    };
+    let auto_save_dir = parent.join("Adobe After Effects Auto-Save");
+    if !auto_save_dir.exists() {
+        return Ok(ActionResult {
+            success: true,
+            message: "No auto-save folder found to purge.".to_string(),
+            details: Vec::new(),
+        });
+    }
+
+    let mut purged_count = 0;
+    let mut total_freed = 0u64;
+    let mut details = Vec::new();
+
+    if let Ok(entries) = fs::read_dir(&auto_save_dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_file() {
+                if let Some(ext) = path.extension().and_then(OsStr::to_str) {
+                    if ext.to_lowercase() == "aep" {
+                        if let Ok(meta) = entry.metadata() {
+                            total_freed += meta.len();
+                        }
+                        if fs::remove_file(&path).is_ok() {
+                            purged_count += 1;
+                            details.push(normalize(&path));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    let freed_mb = (total_freed as f64 / (1024.0 * 1024.0) * 10.0).round() / 10.0;
+    Ok(ActionResult {
+        success: true,
+        message: format!("Purged {} auto-save files, freeing {} MB.", purged_count, freed_mb),
+        details,
+    })
 }
 
 #[allow(dead_code)]
@@ -234,6 +308,8 @@ fn try_everything_index(limit: usize, mode: &str) -> Option<ProjectIndexSnapshot
             .unwrap_or_default()
             .to_ascii_lowercase();
 
+        let (auto_save_count, auto_save_size_mb) = discover_auto_saves(&full_path);
+
         projects.push(ProjectEntry {
             id: sanitize_id(&normalized),
             name: row.name,
@@ -245,6 +321,8 @@ fn try_everything_index(limit: usize, mode: &str) -> Option<ProjectIndexSnapshot
                 .and_then(|value| value.parse::<f64>().ok())
                 .unwrap_or(0.0),
             drive: normalized.chars().take(2).collect::<String>(),
+            auto_save_count,
+            auto_save_size_mb,
         });
     }
 
@@ -317,6 +395,7 @@ fn scan_projects_under(root: &Path, projects: &mut Vec<ProjectEntry>, limit: usi
             Err(_) => continue,
         };
         let path_text = normalize(&path);
+        let (auto_save_count, auto_save_size_mb) = discover_auto_saves(&path);
 
         projects.push(ProjectEntry {
             id: sanitize_id(&path_text),
@@ -333,6 +412,8 @@ fn scan_projects_under(root: &Path, projects: &mut Vec<ProjectEntry>, limit: usi
                 .unwrap_or_else(|_| "0".to_string()),
             size_mb: ((metadata.len() as f64) / (1024.0 * 1024.0) * 10.0).round() / 10.0,
             drive: path_text.chars().take(2).collect::<String>(),
+            auto_save_count,
+            auto_save_size_mb,
         });
     }
 }

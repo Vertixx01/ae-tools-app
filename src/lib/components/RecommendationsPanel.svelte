@@ -11,7 +11,7 @@
 <div class="panel rounded-[28px] p-5 md:p-6">
   <p class="mono text-[11px] uppercase tracking-[0.24em] text-[color:var(--muted)]">Recommendations</p>
   <h2 class="mt-2 text-2xl font-semibold">What matters first</h2>
-  <div class="mt-5 grid gap-3">
+  <div class="mt-5 grid gap-3 max-h-[300px] overflow-y-auto pr-1">
     {#if recommendations.length}
       {#each recommendations as rec}
         <article class="rounded-[22px] border border-white/8 bg-white/4 p-4">

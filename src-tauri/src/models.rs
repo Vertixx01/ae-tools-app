@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ScanSnapshot {
     pub system: SystemOverview,
@@ -8,9 +8,10 @@ pub struct ScanSnapshot {
     pub startup_items: Vec<StartupItem>,
     pub recommendations: Vec<Recommendation>,
     pub warnings: Vec<String>,
+    pub global_caches: Vec<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct SystemOverview {
     pub computer_name: String,
@@ -24,7 +25,7 @@ pub struct SystemOverview {
     pub power_scheme: String,
 }
 
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct PluginEntry {
     pub id: String,
@@ -34,10 +35,11 @@ pub struct PluginEntry {
     pub kind: String,
     pub size_mb: f64,
     pub has_signature: bool,
+    pub is_enabled: bool,
     pub duplicate_count: usize,
 }
 
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct AfterEffectsInstall {
     pub id: String,
@@ -65,7 +67,7 @@ pub struct StartupItem {
     pub score: u8,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Recommendation {
     pub id: String,
@@ -76,7 +78,7 @@ pub struct Recommendation {
     pub action_kind: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct ActionResult {
     pub success: bool,
@@ -84,7 +86,7 @@ pub struct ActionResult {
     pub details: Vec<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StartupItemRequest {
     pub id: String,
@@ -93,7 +95,7 @@ pub struct StartupItemRequest {
     pub kind: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StartupDiscovery {
     pub name: String,
@@ -103,7 +105,7 @@ pub struct StartupDiscovery {
     pub scope: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct ProjectEntry {
     pub id: String,
@@ -113,9 +115,11 @@ pub struct ProjectEntry {
     pub modified: String,
     pub size_mb: f64,
     pub drive: String,
+    pub auto_save_count: usize,
+    pub auto_save_size_mb: f64,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ProjectIndexSnapshot {
     pub roots: Vec<String>,
@@ -124,4 +128,76 @@ pub struct ProjectIndexSnapshot {
     pub scanned_mode: String,
     pub engine: String,
     pub skipped_roots: Vec<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct RenderProcess {
+    pub pid: u32,
+    pub name: String,
+    pub cpu_usage: f32,
+    pub memory_mb: u64,
+    pub is_rendering: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RenderStatus {
+    pub is_active: bool,
+    pub processes: Vec<RenderProcess>,
+    pub total_cpu: f32,
+    pub total_memory_mb: u64,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct FontEntry {
+    pub name: String,
+    pub family: String,
+    pub style: Option<String>,
+    pub is_installed: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FontAuditResult {
+    pub success: bool,
+    pub project_path: String,
+    pub fonts: Vec<FontEntry>,
+    pub missing_count: usize,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ExpressionError {
+    pub timestamp: String,
+    pub project: Option<String>,
+    pub composition: String,
+    pub layer: String,
+    pub property: String,
+    pub message: String,
+    pub version: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExpressionAuditResult {
+    pub success: bool,
+    pub project_path: String,
+    pub errors: Vec<ExpressionError>,
+    pub risky_count: usize,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EverythingStatus {
+    pub available: bool,
+    pub es_path: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionStatus {
+    pub active: bool,
+    pub disabled_items: Vec<String>,
 }

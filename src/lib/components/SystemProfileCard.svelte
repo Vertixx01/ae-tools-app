@@ -8,10 +8,10 @@
   let { system }: Props = $props();
 </script>
 
-<div class="panel rounded-[24px] border-white/10 p-5">
+<div class="panel rounded-[24px] border-white/10 p-3">
   <p class="mono text-[11px] uppercase tracking-[0.24em] text-[color:var(--muted)]">System profile</p>
   {#if system}
-    <div class="mt-4 grid gap-3 text-sm">
+    <div class="mt-2 grid gap-2 text-sm">
       <div class="flex justify-between gap-4"><span class="text-[color:var(--muted)]">CPU</span><span class="text-right">{system.cpu}</span></div>
       <div class="flex justify-between gap-4"><span class="text-[color:var(--muted)]">GPU</span><span class="text-right">{system.gpu}</span></div>
       <div class="flex justify-between gap-4"><span class="text-[color:var(--muted)]">RAM</span><span>{system.ramGb} GB</span></div>

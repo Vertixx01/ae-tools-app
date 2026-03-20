@@ -1,4 +1,4 @@
-use crate::models::{ActionResult, StartupDiscovery, StartupItem, StartupItemRequest};
+use crate::models::{ActionResult, StartupDiscovery, StartupItem};
 use crate::util::{normalize, powershell, powershell_escape, powershell_json, sanitize_id};
 use std::{fs, path::PathBuf};
 
@@ -96,7 +96,7 @@ Get-ScheduledTask -ErrorAction SilentlyContinue |
     items
 }
 
-pub fn disable_startup_item(item: StartupItemRequest) -> Result<ActionResult, String> {
+pub fn disable_startup_item(item: StartupItem) -> Result<ActionResult, String> {
     match item.kind.as_str() {
         "registry" => {
             let path = powershell_escape(&item.location);
