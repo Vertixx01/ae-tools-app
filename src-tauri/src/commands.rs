@@ -300,16 +300,24 @@ pub fn run_aerender(
 
     // Default to H.264 for MP4 outputs in modern AE versions
     let template = om_template.unwrap_or_else(|| "H.264".to_string());
-    cmd.arg("-OMtemplate").arg(template);
+    cmd.arg("-OMtemplate").arg(&template);
+
+    // Map template to extension
+    let ext = match template.to_uppercase().as_str() {
+        "H.264" | "H264" | "MP4" => "mp4",
+        "PRORES" | "QUICKTIME" => "mov",
+        "LOSSLESS" => "avi",
+        _ => "mp4",
+    };
 
     // Construct a sensible default output path
     let project_path_buf = std::path::Path::new(&project_path);
     if let (Some(parent), Some(stem)) = (project_path_buf.parent(), project_path_buf.file_stem()) {
         let render_dir = parent.join("renders");
         if !render_dir.exists() {
-            let _ = std::fs::create_dir_all(&render_dir);
+            std::fs::create_dir_all(&render_dir).map_err(|e| format!("Failed to create render directory: {}", e))?;
         }
-        let output_file = render_dir.join(format!("{}.mp4", stem.to_string_lossy()));
+        let output_file = render_dir.join(format!("{}.{}", stem.to_string_lossy(), ext));
         cmd.arg("-output").arg(output_file);
     }
 

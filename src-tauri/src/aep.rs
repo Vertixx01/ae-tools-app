@@ -72,7 +72,7 @@ fn walk_chunks(data: &[u8], start: usize, end: usize, meta: &mut AepMetadata) {
             }
         } else if tag == CDTA {
             // Composition Data
-            if size >= 146 {
+            if size >= 156 {
                 let w = read_be_u16(data, chunk_start + 140);
                 let h = read_be_u16(data, chunk_start + 142);
                 let f = read_be_u16(data, chunk_start + 154); 
@@ -119,7 +119,12 @@ fn walk_chunks(data: &[u8], start: usize, end: usize, meta: &mut AepMetadata) {
 fn is_likely_path(s: &str) -> bool {
     if s.len() < 5 || s.len() > 300 { return false; }
     // Drive letter like C:\ or unc path \\
-    if (s.chars().next().map(|c| c.is_ascii_alphabetic()).unwrap_or(false) && s.starts_with(":\\")) || s.starts_with("\\\\") {
+    let is_drive = s.len() > 2 
+        && s.chars().next().map(|c| c.is_ascii_alphabetic()).unwrap_or(false) 
+        && s.chars().nth(1) == Some(':') 
+        && s.chars().nth(2) == Some('\\');
+
+    if is_drive || s.starts_with("\\\\") {
         return true;
     }
     // Check for common footage extensions

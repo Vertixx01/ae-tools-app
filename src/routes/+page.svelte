@@ -75,7 +75,7 @@
   let expressionLogs = $state<ExpressionError[]>([]);
   let expressionLoading = $state(false);
 
-  let renderLogs = $state<string[]>([]);
+  let renderLogs = $state<{ message: string; timestamp: Date }[]>([]);
   let renderLogVisible = $state(false);
   let currentProjectName = $state("");
 
@@ -294,12 +294,12 @@
     const sessionInterval = setInterval(refreshSessionStatus, 5000);
 
     const unlistenOutput = listen<string>("render-output", (event) => {
-      renderLogs = [...renderLogs, event.payload];
+      renderLogs = [...renderLogs, { message: event.payload, timestamp: new Date() }];
     });
 
     const unlistenFinished = listen<string>("render-finished", (event) => {
-      flash({ success: true, message: event.payload, details: [] }, 
-            event.payload.toLowerCase().includes("failed") ? "error" : "success");
+      const isError = event.payload.toLowerCase().includes("failed") || event.payload.toLowerCase().includes("error");
+      flash({ success: !isError, message: event.payload, details: [] }, isError ? "error" : "success");
     });
 
     return () => {
@@ -309,6 +309,14 @@
       unlistenFinished.then(u => u());
     };
   });
+
+  function handleProjectPlugins(_path: string, plugins: string[]) {
+    flash({
+      success: true,
+      message: `Project Plugins: ${plugins.join(", ")}`,
+      details: plugins
+    }, "success");
+  }
 </script>
 
 <main class="relative mx-auto max-w-[1700px] overflow-hidden p-6 md:p-8">
@@ -372,6 +380,7 @@
           onAuditFonts={performFontAudit}
           onAuditExpressions={performExpressionAudit}
           onRunAerender={performAerender}
+          onOpenPlugins={handleProjectPlugins}
         />
       {/if}
     </div>

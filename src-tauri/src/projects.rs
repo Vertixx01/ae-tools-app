@@ -174,26 +174,44 @@ fn download_everything_package(download: &EverythingDownload) -> Result<ActionRe
     ))?;
 
     if download.id == "es-cli-zip" {
-        if let Some(app_data) = env_path("APPDATA") {
-            let bin_dir = app_data.join("AetherFXOptimizer").join("bin");
-            let _ = fs::create_dir_all(&bin_dir);
-            let bin_dir_literal = powershell_escape(&normalize(&bin_dir));
-            
-            // Extract ES CLI to the bin directory
-            powershell(&format!(
-                "Expand-Archive -Path '{}' -DestinationPath '{}' -Force;",
-                path_literal, bin_dir_literal
-            ))?;
+        let app_data = env_path("APPDATA").ok_or_else(|| "APPDATA environment variable is missing.".to_string())?;
+        let bin_dir = app_data.join("AetherFXOptimizer").join("bin");
+        fs::create_dir_all(&bin_dir).map_err(|e| format!("Failed to create bin directory: {}", e))?;
+        
+        let bin_dir_literal = powershell_escape(&normalize(&bin_dir));
+        
+        // Extract ES CLI to the bin directory
+        powershell(&format!(
+            "Expand-Archive -Path '{}' -DestinationPath '{}' -Force;",
+            path_literal, bin_dir_literal
+        ))?;
 
-            // Cleanup zip
-            let _ = fs::remove_file(&target);
-
-            return Ok(ActionResult {
-                success: true,
-                message: "Downloaded and extracted ES CLI (es.exe) to app storage. It is now ready for use.".to_string(),
-                details: vec![normalize(&bin_dir.join("es.exe"))],
-            });
+        // Recursively locate es.exe
+        fn locate_es(dir: &Path) -> Option<PathBuf> {
+            if let Ok(entries) = fs::read_dir(dir) {
+                for entry in entries.flatten() {
+                    let path = entry.path();
+                    if path.is_dir() {
+                        if let Some(found) = locate_es(&path) { return Some(found); }
+                    } else if path.file_name() == Some(std::ffi::OsStr::new("es.exe")) {
+                        return Some(path);
+                    }
+                }
+            }
+            None
         }
+
+        let es_path = locate_es(&bin_dir).ok_or_else(|| "Successfully extracted, but es.exe was not found in the archive.".to_string())?;
+        let normalized_es = normalize(&es_path);
+
+        // Cleanup zip
+        let _ = fs::remove_file(&target);
+
+        return Ok(ActionResult {
+            success: true,
+            message: format!("ES CLI located at {}. It is now ready for use.", normalized_es),
+            details: vec![normalized_es],
+        });
     }
 
     match download.kind {

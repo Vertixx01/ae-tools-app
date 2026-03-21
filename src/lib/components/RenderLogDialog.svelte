@@ -2,17 +2,23 @@
   import { onMount } from "svelte";
   import { scale, fade } from "svelte/transition";
   import { convertFileSrc } from "@tauri-apps/api/core";
+  import { openPath } from "@tauri-apps/plugin-opener";
+  
+  interface LogEntry {
+    message: string;
+    timestamp: Date;
+  }
 
   interface Props {
     projectName: string;
-    logs: string[];
+    logs: LogEntry[];
     visible: boolean;
     onClose: () => void;
   }
 
   let { projectName, logs, visible, onClose }: Props = $props();
   let logEnd: HTMLDivElement | null = $state(null);
-  let mountTime = Date.now();
+  let mountTime = $state(Date.now());
 
   $effect(() => {
     if (visible) mountTime = Date.now();
@@ -21,7 +27,7 @@
   const progress = $derived.by(() => {
     let latest = 0;
     for (const log of logs) {
-      const match = log.match(/PROGRESS:.*\(?\s*(\d+(\.\d+)?)%\)?/);
+      const match = log.message.match(/PROGRESS:.*\(?\s*(\d+(\.\d+)?)%\)?/);
       if (match) latest = parseFloat(match[1]);
     }
     return latest;
@@ -30,7 +36,7 @@
   const finalVideoPath = $derived.by(() => {
     for (const log of logs) {
       // Matches both "Finished rendering to" and "Output: "
-      const match = log.match(/(?:Finished rendering to|Output:)\s*"(.*)"/i);
+      const match = log.message.match(/(?:Finished rendering to|Output:)\s*"(.*)"/i);
       if (match) return match[1];
     }
     return null;
@@ -96,8 +102,8 @@
                 <div class="space-y-1">
                   {#each logs as log}
                     <div class="flex gap-3">
-                      <span class="opacity-30 select-none">[{new Date().toLocaleTimeString()}]</span>
-                      <p class="break-all {log.startsWith('ERR:') ? 'text-red-400' : 'text-emerald-400/90'}">{log}</p>
+                      <span class="opacity-30 select-none">[{log.timestamp.toLocaleTimeString()}]</span>
+                      <p class="break-all {log.message.startsWith('ERR:') ? 'text-red-400' : 'text-emerald-400/90'}">{log.message}</p>
                     </div>
                   {/each}
                   <div bind:this={logEnd}></div>
@@ -137,7 +143,7 @@
         {#if finalVideoPath}
           <button 
             class="rounded-full bg-emerald-500 px-6 py-2 text-sm font-bold text-slate-950 transition hover:bg-emerald-400 hover:scale-[1.02] active:scale-[0.98]"
-            onclick={() => (window as any).__TAURI__.opener.openPath(finalVideoPath)}
+            onclick={() => openPath(finalVideoPath!)}
           >
             Reveal in Explorer
           </button>

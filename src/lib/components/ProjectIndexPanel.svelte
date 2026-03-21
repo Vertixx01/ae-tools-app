@@ -11,9 +11,10 @@
     onAuditFonts: (path: string) => void;
     onAuditExpressions: (path: string) => void;
     onRunAerender: (path: string, name: string, mfr: boolean, comp?: string) => void;
+    onOpenPlugins: (path: string, plugins: string[]) => void;
   }
 
-  let { projectIndex, busy, onRefresh, onOpenPath, onDownConvert, onPurgeAutoSaves, onAuditFonts, onAuditExpressions, onRunAerender }: Props = $props();
+  let { projectIndex, busy, onRefresh, onOpenPath, onDownConvert, onPurgeAutoSaves, onAuditFonts, onAuditExpressions, onRunAerender, onOpenPlugins }: Props = $props();
   let mfrEnabled = $state(true);
   let selectedComps = $state<Record<string, string>>({});
   const previewProjects = $derived.by(() => projectIndex?.projects.slice(0, 12) ?? []);
@@ -151,6 +152,7 @@
                       </button>
                       <button 
                         class="text-[10px] uppercase font-bold text-(--accent) hover:underline disabled:opacity-50"
+                        onclick={() => onOpenPlugins(project.path, project.plugins)}
                         disabled={!project.plugins || project.plugins.length === 0}
                       >
                         Plugins ({project.plugins?.length ?? 0})
