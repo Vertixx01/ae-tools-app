@@ -236,6 +236,7 @@ pub fn find_ae_installs() -> Vec<AfterEffectsInstall> {
             }
 
             let exe = path.join("Support Files").join("AfterFX.exe");
+            let aerender = path.join("Support Files").join("aerender.exe");
             let key = version_key(name);
             let plugin_roots = plugin_roots_for_install(&path);
             let plugin_paths: Vec<String> = plugin_roots
@@ -245,6 +246,7 @@ pub fn find_ae_installs() -> Vec<AfterEffectsInstall> {
                 .collect();
 
             let exe_normalized = exe.exists().then(|| normalize(&exe));
+            let aerender_normalized = aerender.exists().then(|| normalize(&aerender));
             let performance_mode = exe_normalized
                 .as_ref()
                 .and_then(|value| performance_map.get(value))
@@ -256,6 +258,7 @@ pub fn find_ae_installs() -> Vec<AfterEffectsInstall> {
                 display_name: name.to_string(),
                 install_root: Some(normalize(&path)),
                 exe_path: exe_normalized,
+                aerender_path: aerender_normalized,
                 version_hint: key.clone(),
                 profile_paths: roaming_versions.get(&key).cloned().unwrap_or_default(),
                 cache_paths: local_versions.get(&key).cloned().unwrap_or_default(),
@@ -280,6 +283,7 @@ pub fn find_ae_installs() -> Vec<AfterEffectsInstall> {
                 display_name: format!("After Effects profile {key}"),
                 install_root: None,
                 exe_path: None,
+                aerender_path: None,
                 version_hint: key.clone(),
                 profile_paths: roaming_versions.get(&key).cloned().unwrap_or_default(),
                 cache_paths: local_versions.get(&key).cloned().unwrap_or_default(),

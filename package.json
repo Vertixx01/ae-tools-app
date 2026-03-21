@@ -1,6 +1,6 @@
 {
   "name": "ae-tools-app",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Desktop optimizer and diagnostics toolkit for Adobe After Effects",
   "type": "module",
   "scripts": {

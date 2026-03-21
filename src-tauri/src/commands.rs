@@ -1,15 +1,26 @@
-use crate::adobe::{find_ae_installs, set_performance_mode as adobe_set_perf, discover_global_caches};
-use crate::models::{
-    ActionResult, EverythingStatus, FontAuditResult, ProjectIndexSnapshot,
-    RenderStatus, ScanSnapshot, SessionStatus, StartupItem, ExpressionError, ExpressionAuditResult,
-    RenderProcess
+use crate::adobe::{
+    discover_global_caches, find_ae_installs, set_performance_mode as adobe_set_perf,
 };
-use crate::projects::{get_project_index as projects_get_index, purge_auto_saves as projects_purge_as};
-use crate::session::{start_session_mode as session_start, stop_session_mode as session_stop, get_session_status};
-use crate::system::{apply_power_profile_logic, build_recommendations, collect_warnings, system_overview};
-use crate::expressions::{audit_project_expressions as expressions_audit, get_expression_logs as expressions_logs};
+use crate::expressions::{
+    audit_project_expressions as expressions_audit, get_expression_logs as expressions_logs,
+};
+use crate::models::{
+    ActionResult, EverythingStatus, ExpressionAuditResult, ExpressionError, FontAuditResult,
+    ProjectIndexSnapshot, RenderProcess, RenderStatus, ScanSnapshot, SessionStatus, StartupItem,
+};
+use crate::projects::{
+    get_project_index as projects_get_index, purge_auto_saves as projects_purge_as,
+};
+use crate::session::{
+    get_session_status, start_session_mode as session_start, stop_session_mode as session_stop,
+};
+use crate::system::{
+    apply_power_profile_logic, build_recommendations, collect_warnings, system_overview,
+};
 use crate::AppState;
-use tauri::State;
+use std::io::{BufRead, BufReader};
+use std::process::Stdio;
+use tauri::{Emitter, State, Window};
 
 #[tauri::command]
 pub fn get_scan_snapshot() -> Result<ScanSnapshot, String> {
@@ -103,9 +114,11 @@ pub fn toggle_plugin(path: String, enable: bool) -> Result<ActionResult, String>
         for plugin in install.plugins {
             if plugin.path == path {
                 let parent = std::path::Path::new(&path).parent().ok_or("Invalid path")?;
-                let file_name = std::path::Path::new(&path).file_name().ok_or("Invalid name")?;
+                let file_name = std::path::Path::new(&path)
+                    .file_name()
+                    .ok_or("Invalid name")?;
                 let mut new_path = parent.join(file_name);
-                
+
                 let file_name_str = file_name.to_string_lossy();
                 if enable && file_name_str.ends_with(".disabled") {
                     new_path = parent.join(file_name_str.replace(".disabled", ""));
@@ -119,7 +132,11 @@ pub fn toggle_plugin(path: String, enable: bool) -> Result<ActionResult, String>
 
                 return Ok(ActionResult {
                     success: true,
-                    message: format!("Plugin {} {}", if enable { "enabled" } else { "disabled" }, plugin.name),
+                    message: format!(
+                        "Plugin {} {}",
+                        if enable { "enabled" } else { "disabled" },
+                        plugin.name
+                    ),
                     details: vec![new_path.to_string_lossy().to_string()],
                 });
             }
@@ -131,10 +148,10 @@ pub fn toggle_plugin(path: String, enable: bool) -> Result<ActionResult, String>
 #[tauri::command]
 pub fn get_render_status(state: State<'_, AppState>) -> Result<RenderStatus, String> {
     let mut sys = state.sys.lock().map_err(|_| "Failed to lock sysinfo")?;
-    
+
     // sysinfo 0.38 API
     sys.refresh_all();
-    
+
     let mut processes = Vec::new();
     let mut total_cpu = 0.0;
     let mut total_memory_mb = 0;
@@ -173,15 +190,25 @@ pub fn down_convert_aep(path: String, version: String) -> Result<ActionResult, S
     }
 
     let parent = source.parent().ok_or("Invalid path")?;
-    let stem = source.file_stem().ok_or("Invalid filename")?.to_string_lossy();
-    let ext = source.extension().ok_or("Invalid extension")?.to_string_lossy();
+    let stem = source
+        .file_stem()
+        .ok_or("Invalid filename")?
+        .to_string_lossy();
+    let ext = source
+        .extension()
+        .ok_or("Invalid extension")?
+        .to_string_lossy();
     let target = parent.join(format!("{}_v{}.{}", stem, version, ext));
 
     std::fs::copy(source, &target).map_err(|e| e.to_string())?;
 
     Ok(ActionResult {
         success: true,
-        message: format!("Converted project to version {}. File saved as: {}", version, target.display()),
+        message: format!(
+            "Converted project to version {}. File saved as: {}",
+            version,
+            target.display()
+        ),
         details: vec![target.to_string_lossy().to_string()],
     })
 }
@@ -189,10 +216,16 @@ pub fn down_convert_aep(path: String, version: String) -> Result<ActionResult, S
 #[tauri::command]
 pub fn install_ae_script(install_id: String, script_path: String) -> Result<ActionResult, String> {
     let installs = find_ae_installs();
-    let install = installs.into_iter().find(|i| i.id == install_id).ok_or("Install not found")?;
+    let install = installs
+        .into_iter()
+        .find(|i| i.id == install_id)
+        .ok_or("Install not found")?;
     let root = install.install_root.ok_or("Install root not found")?;
-    let scripts_dir = std::path::Path::new(&root).join("Support Files").join("Scripts").join("ScriptUI Panels");
-    
+    let scripts_dir = std::path::Path::new(&root)
+        .join("Support Files")
+        .join("Scripts")
+        .join("ScriptUI Panels");
+
     if !scripts_dir.exists() {
         std::fs::create_dir_all(&scripts_dir).map_err(|e| e.to_string())?;
     }
@@ -228,4 +261,128 @@ pub fn get_expression_logs() -> Result<Vec<ExpressionError>, String> {
 #[tauri::command]
 pub fn audit_project_expressions(path: String) -> Result<ExpressionAuditResult, String> {
     Ok(expressions_audit(&path))
+}
+
+#[tauri::command]
+pub fn run_aerender(
+    project_path: String,
+    window: Window,
+    mfr: bool,
+    cpu_percent: Option<u8>,
+    om_template: Option<String>,
+    comp: Option<String>,
+) -> Result<ActionResult, String> {
+    let installs = find_ae_installs();
+    let install = installs
+        .iter()
+        .find(|i| i.aerender_path.is_some())
+        .ok_or("No After Effects installation with aerender.exe found")?;
+
+    let exe = install.aerender_path.as_ref().unwrap();
+
+    let mut cmd = std::process::Command::new(exe);
+    cmd.arg("-project")
+        .arg(&project_path)
+        .arg("-reuse")
+        .arg("-continueOnMissingFootage")
+        .arg("-v")
+        .arg("ERRORS_AND_PROGRESS")
+        .arg("-sound")
+        .arg("ON");
+
+    // FALLBACK: If we want to use -output and -OMtemplate, we MUST specify a comp or rqindex.
+    if let Some(c) = comp {
+        cmd.arg("-comp").arg(c);
+    } else {
+        // We'll default to the first item in the Render Queue (-rqindex 1) if no comp is specified.
+        cmd.arg("-rqindex").arg("1");
+    }
+
+    // Default to H.264 for MP4 outputs in modern AE versions
+    let template = om_template.unwrap_or_else(|| "H.264".to_string());
+    cmd.arg("-OMtemplate").arg(template);
+
+    // Construct a sensible default output path
+    let project_path_buf = std::path::Path::new(&project_path);
+    if let (Some(parent), Some(stem)) = (project_path_buf.parent(), project_path_buf.file_stem()) {
+        let render_dir = parent.join("renders");
+        if !render_dir.exists() {
+            let _ = std::fs::create_dir_all(&render_dir);
+        }
+        let output_file = render_dir.join(format!("{}.mp4", stem.to_string_lossy()));
+        cmd.arg("-output").arg(output_file);
+    }
+
+    if mfr {
+        cmd.arg("-mfr")
+            .arg("ON")
+            .arg(cpu_percent.unwrap_or(90).to_string());
+    }
+
+    let mut child = cmd
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|e| format!("Failed to spawn aerender: {}", e))?;
+
+    let stdout = child.stdout.take().ok_or("Failed to open stdout")?;
+    let stderr = child.stderr.take().ok_or("Failed to open stderr")?;
+
+    // Stream Stdout
+    let win_out = window.clone();
+    std::thread::spawn(move || {
+        let reader = BufReader::new(stdout);
+        for line in reader.lines() {
+            if let Ok(l) = line {
+                win_out.emit("render-output", l).ok();
+            }
+        }
+    });
+
+    // Stream Stderr
+    let win_err = window.clone();
+    std::thread::spawn(move || {
+        let reader = BufReader::new(stderr);
+        for line in reader.lines() {
+            if let Ok(l) = line {
+                win_err.emit("render-output", format!("ERR: {}", l)).ok();
+            }
+        }
+    });
+
+    // Monitor Finish
+    let win_finish = window.clone();
+    let p_path = project_path.clone();
+    std::thread::spawn(move || match child.wait() {
+        Ok(status) if status.success() => {
+            win_finish
+                .emit(
+                    "render-finished",
+                    format!("Successfully rendered {}", p_path),
+                )
+                .ok();
+        }
+        Ok(status) => {
+            win_finish
+                .emit(
+                    "render-finished",
+                    format!("Render failed: {} (code {})", p_path, status),
+                )
+                .ok();
+        }
+        Err(e) => {
+            win_finish
+                .emit(
+                    "render-finished",
+                    format!("Render error: {} - {}", p_path, e),
+                )
+                .ok();
+        }
+    });
+
+    Ok(ActionResult {
+        success: true,
+        message: "Background render started. Log streaming active...".into(),
+        details: vec![project_path, exe.clone()],
+    })
 }

@@ -152,6 +152,13 @@ const EVERYTHING_DOWNLOADS: &[EverythingDownload] = &[
         label: "Everything x64 archive",
         kind: DownloadKind::Zip,
     },
+    EverythingDownload {
+        id: "es-cli-zip",
+        url: "https://www.voidtools.com/ES-1.1.0.18.zip",
+        file_name: "ES-1.1.0.18.zip",
+        label: "ES CLI (es.exe) zip archive",
+        kind: DownloadKind::Zip,
+    },
 ];
 
 #[allow(dead_code)]
@@ -165,6 +172,29 @@ fn download_everything_package(download: &EverythingDownload) -> Result<ActionRe
         "Invoke-WebRequest -Uri '{}' -OutFile '{}' -UseBasicParsing -DisableKeepAlive;",
         url_literal, path_literal
     ))?;
+
+    if download.id == "es-cli-zip" {
+        if let Some(app_data) = env_path("APPDATA") {
+            let bin_dir = app_data.join("AetherFXOptimizer").join("bin");
+            let _ = fs::create_dir_all(&bin_dir);
+            let bin_dir_literal = powershell_escape(&normalize(&bin_dir));
+            
+            // Extract ES CLI to the bin directory
+            powershell(&format!(
+                "Expand-Archive -Path '{}' -DestinationPath '{}' -Force;",
+                path_literal, bin_dir_literal
+            ))?;
+
+            // Cleanup zip
+            let _ = fs::remove_file(&target);
+
+            return Ok(ActionResult {
+                success: true,
+                message: "Downloaded and extracted ES CLI (es.exe) to app storage. It is now ready for use.".to_string(),
+                details: vec![normalize(&bin_dir.join("es.exe"))],
+            });
+        }
+    }
 
     match download.kind {
         DownloadKind::Installer => {
@@ -245,9 +275,16 @@ fn discover_project_roots(mode: &str) -> (Vec<PathBuf>, Vec<String>) {
 fn locate_es() -> Option<PathBuf> {
     let mut candidates = Vec::new();
 
+    // Check app-local bin storage first (where we auto-install it)
+    if let Some(app_data) = env_path("APPDATA") {
+        candidates.push(app_data.join("AetherFXOptimizer").join("bin").join("es.exe"));
+    }
+
     if let Ok(path_value) = env::var("PATH") {
         for part in path_value.split(';').filter(|part| !part.is_empty()) {
-            candidates.push(PathBuf::from(part).join("es.exe"));
+            // Trim quotes which sometimes appear in PATH
+            let clean_part = part.trim().trim_matches('"');
+            candidates.push(PathBuf::from(clean_part).join("es.exe"));
         }
     }
 
@@ -258,7 +295,24 @@ fn locate_es() -> Option<PathBuf> {
         candidates.push(program_files_x86.join("Everything").join("es.exe"));
     }
 
-    candidates.into_iter().find(|candidate| candidate.exists())
+    if let Some(found) = candidates.into_iter().find(|candidate| candidate.exists()) {
+        return Some(found);
+    }
+
+    // Fallback: Use where.exe to find es.exe on the system path
+    if let Ok(output) = Command::new("where.exe").arg("es.exe").output() {
+        if output.status.success() {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            if let Some(first_line) = stdout.lines().next() {
+                let path = PathBuf::from(first_line.trim());
+                if path.exists() {
+                    return Some(path);
+                }
+            }
+        }
+    }
+
+    None
 }
 
 fn try_everything_index(limit: usize, mode: &str) -> Option<ProjectIndexSnapshot> {
@@ -267,8 +321,7 @@ fn try_everything_index(limit: usize, mode: &str) -> Option<ProjectIndexSnapshot
 
     let status = Command::new(&es)
         .args([
-            "-regex",
-            "\\.(aep|aepx|aet)$",
+            "-name",
             "-path-column",
             "-size",
             "-date-modified",
@@ -284,6 +337,7 @@ fn try_everything_index(limit: usize, mode: &str) -> Option<ProjectIndexSnapshot
             "date-modified-descending",
             "-max-results",
             &limit.to_string(),
+            "ext:aep;aepx;aet",
         ])
         .status()
         .ok()?;
@@ -309,6 +363,13 @@ fn try_everything_index(limit: usize, mode: &str) -> Option<ProjectIndexSnapshot
             .to_ascii_lowercase();
 
         let (auto_save_count, auto_save_size_mb) = discover_auto_saves(&full_path);
+        
+        // Project X-Ray
+        let aep_meta = if extension == "aep" {
+            crate::aep::analyze_aep(&normalized)
+        } else {
+            crate::aep::AepMetadata::default()
+        };
 
         projects.push(ProjectEntry {
             id: sanitize_id(&normalized),
@@ -323,6 +384,13 @@ fn try_everything_index(limit: usize, mode: &str) -> Option<ProjectIndexSnapshot
             drive: normalized.chars().take(2).collect::<String>(),
             auto_save_count,
             auto_save_size_mb,
+            width: aep_meta.width,
+            height: aep_meta.height,
+            duration: aep_meta.duration,
+            fps: aep_meta.fps,
+            plugins: aep_meta.plugins,
+            compositions: aep_meta.compositions,
+            missing_footage: aep_meta.missing_footage,
         });
     }
 
@@ -396,6 +464,13 @@ fn scan_projects_under(root: &Path, projects: &mut Vec<ProjectEntry>, limit: usi
         };
         let path_text = normalize(&path);
         let (auto_save_count, auto_save_size_mb) = discover_auto_saves(&path);
+        
+        // Project X-Ray
+        let aep_meta = if ext == "aep" {
+            crate::aep::analyze_aep(&path_text)
+        } else {
+            crate::aep::AepMetadata::default()
+        };
 
         projects.push(ProjectEntry {
             id: sanitize_id(&path_text),
@@ -414,6 +489,13 @@ fn scan_projects_under(root: &Path, projects: &mut Vec<ProjectEntry>, limit: usi
             drive: path_text.chars().take(2).collect::<String>(),
             auto_save_count,
             auto_save_size_mb,
+            width: aep_meta.width,
+            height: aep_meta.height,
+            duration: aep_meta.duration,
+            fps: aep_meta.fps,
+            plugins: aep_meta.plugins,
+            compositions: aep_meta.compositions,
+            missing_footage: aep_meta.missing_footage,
         });
     }
 }

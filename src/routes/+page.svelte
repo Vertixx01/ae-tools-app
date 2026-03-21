@@ -21,6 +21,7 @@
     auditProjectFonts,
     getExpressionLogs,
     auditProjectExpressions,
+    runAerender,
   } from "$lib/api";
   import type {
     ActionResult,
@@ -50,6 +51,8 @@
   import StartupNoisePanel from "$lib/components/StartupNoisePanel.svelte";
   import SystemProfileCard from "$lib/components/SystemProfileCard.svelte";
   import ToastBanner from "$lib/components/ToastBanner.svelte";
+  import RenderLogDialog from "$lib/components/RenderLogDialog.svelte";
+  import { listen } from "@tauri-apps/api/event";
   import { getAllCachePaths, getHealthScore } from "$lib/dashboard";
 
   type Toast = { tone: "success" | "error"; message: string };
@@ -71,6 +74,10 @@
   let expressionAuditResult = $state<ExpressionAuditResult | null>(null);
   let expressionLogs = $state<ExpressionError[]>([]);
   let expressionLoading = $state(false);
+
+  let renderLogs = $state<string[]>([]);
+  let renderLogVisible = $state(false);
+  let currentProjectName = $state("");
 
   const healthScore = $derived.by(() => getHealthScore(snapshot));
   const noisyStartupItems = $derived.by(
@@ -269,13 +276,37 @@
     }
   }
 
+  async function performAerender(path: string, name: string, mfr: boolean = true, comp?: string) {
+    renderLogs = [];
+    currentProjectName = name;
+    renderLogVisible = true;
+    try {
+      const result = await runAerender(path, mfr, 90, undefined, comp);
+      flash(result, result.success ? "success" : "error");
+    } catch (e) {
+      flash({ success: false, message: String(e), details: [] }, "error");
+    }
+  }
+
   onMount(() => {
     refresh();
     const interval = setInterval(refreshRenderStatus, 3000);
     const sessionInterval = setInterval(refreshSessionStatus, 5000);
+
+    const unlistenOutput = listen<string>("render-output", (event) => {
+      renderLogs = [...renderLogs, event.payload];
+    });
+
+    const unlistenFinished = listen<string>("render-finished", (event) => {
+      flash({ success: true, message: event.payload, details: [] }, 
+            event.payload.toLowerCase().includes("failed") ? "error" : "success");
+    });
+
     return () => {
       clearInterval(interval);
       clearInterval(sessionInterval);
+      unlistenOutput.then(u => u());
+      unlistenFinished.then(u => u());
     };
   });
 </script>
@@ -340,6 +371,7 @@
           onPurgeAutoSaves={purgeProjectAutoSaves}
           onAuditFonts={performFontAudit}
           onAuditExpressions={performExpressionAudit}
+          onRunAerender={performAerender}
         />
       {/if}
     </div>
@@ -368,8 +400,6 @@
       />
     </div>
   </div>
-
-  <ToastBanner {toast} />
 </main>
 
 <FontAuditDialog 
@@ -384,3 +414,12 @@
   loading={expressionLoading}
   onClose={() => (expressionAuditResult = null)}
 />
+
+<RenderLogDialog
+  projectName={currentProjectName}
+  logs={renderLogs}
+  visible={renderLogVisible}
+  onClose={() => (renderLogVisible = false)}
+/>
+
+<ToastBanner {toast} />

@@ -46,6 +46,7 @@ pub struct AfterEffectsInstall {
     pub display_name: String,
     pub install_root: Option<String>,
     pub exe_path: Option<String>,
+    pub aerender_path: Option<String>,
     pub version_hint: String,
     pub profile_paths: Vec<String>,
     pub cache_paths: Vec<String>,
@@ -117,6 +118,13 @@ pub struct ProjectEntry {
     pub drive: String,
     pub auto_save_count: usize,
     pub auto_save_size_mb: f64,
+    pub width: Option<u32>,
+    pub height: Option<u32>,
+    pub duration: Option<f64>,
+    pub fps: Option<f32>,
+    pub plugins: Vec<String>,
+    pub compositions: Vec<String>,
+    pub missing_footage: usize,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

@@ -10,9 +10,12 @@
     onPurgeAutoSaves: (path: string) => void;
     onAuditFonts: (path: string) => void;
     onAuditExpressions: (path: string) => void;
+    onRunAerender: (path: string, name: string, mfr: boolean, comp?: string) => void;
   }
 
-  let { projectIndex, busy, onRefresh, onOpenPath, onDownConvert, onPurgeAutoSaves, onAuditFonts, onAuditExpressions }: Props = $props();
+  let { projectIndex, busy, onRefresh, onOpenPath, onDownConvert, onPurgeAutoSaves, onAuditFonts, onAuditExpressions, onRunAerender }: Props = $props();
+  let mfrEnabled = $state(true);
+  let selectedComps = $state<Record<string, string>>({});
   const previewProjects = $derived.by(() => projectIndex?.projects.slice(0, 12) ?? []);
 </script>
 
@@ -32,8 +35,14 @@
       </div>
       <div class="flex flex-wrap gap-2">
         <button
-        class="rounded-full border border-white/10 bg-white/6 px-4 py-2 text-sm font-semibold transition hover:border-white/20 hover:bg-white/10 disabled:opacity-60"
-        onclick={() => onRefresh("quick")}
+          class="rounded-full border {mfrEnabled ? 'border-emerald-500/40 text-emerald-400 bg-emerald-500/5' : 'border-white/10 text-(--muted) bg-white/4'} px-4 py-2 text-xs font-bold uppercase tracking-widest transition hover:brightness-110"
+          onclick={() => (mfrEnabled = !mfrEnabled)}
+        >
+          MFR {mfrEnabled ? "ON" : "OFF"}
+        </button>
+        <button
+          class="rounded-full border border-white/10 bg-white/6 px-4 py-2 text-sm font-semibold transition hover:border-white/20 hover:bg-white/10 disabled:opacity-60"
+          onclick={() => onRefresh("quick")}
         disabled={busy === "projects-quick" || busy === "projects-full"}
       >
         {busy === "projects-quick" ? "Scanning..." : "Quick scan"}
@@ -105,19 +114,26 @@
                 
                 <div class="h-8 w-px bg-white/10"></div>
 
-                {#if project.autoSaveCount > 0}
-                  <div class="flex flex-col items-end gap-1.5 text-xs">
-                    <div class="flex items-center gap-1.5 text-(--accent)">
-                      <span class="font-bold">{project.autoSaveCount}</span>
-                      <span class="opacity-70 uppercase text-[9px] tracking-wider">A-S</span>
+                <div class="flex items-center gap-3">
+                  {#if project.autoSaveCount > 0}
+                    <div class="flex flex-col items-end gap-1 text-xs">
+                      <div class="flex items-center gap-1.5 text-(--accent)">
+                        <span class="font-bold">{project.autoSaveCount}</span>
+                        <span class="opacity-70 uppercase text-[9px] tracking-wider">A-S</span>
+                      </div>
+                      <p class="text-[9px] text-(--muted) opacity-60">{project.autoSaveSizeMb}M</p>
                     </div>
+                    <div class="h-6 w-px bg-white/10 mx-1"></div>
+                  {/if}
+
+                  <div class="flex flex-col items-end gap-1.5 text-xs">
                     <div class="flex items-center gap-2">
                       <button 
-                        class="text-[10px] uppercase font-bold text-(--danger) hover:underline disabled:opacity-50"
+                        class="text-[10px] uppercase font-bold text-(--danger) hover:underline disabled:opacity-30"
                         onclick={() => onPurgeAutoSaves(project.path)}
-                        disabled={busy === `purge-as-${project.path}`}
+                        disabled={project.autoSaveCount === 0 || busy === `purge-as-${project.path}`}
                       >
-                        Purge {project.autoSaveSizeMb}M
+                        Purge
                       </button>
                       <button 
                         class="text-[10px] uppercase font-bold text-(--accent) hover:underline disabled:opacity-50"
@@ -133,12 +149,38 @@
                       >
                         Expr
                       </button>
+                      <button 
+                        class="text-[10px] uppercase font-bold text-(--accent) hover:underline disabled:opacity-50"
+                        disabled={!project.plugins || project.plugins.length === 0}
+                      >
+                        Plugins ({project.plugins?.length ?? 0})
+                      </button>
+                      <div class="flex items-center gap-1.5 border-l border-white/10 pl-2">
+                        {#if project.compositions && project.compositions.length > 0}
+                          <select 
+                            class="bg-transparent text-[10px] text-(--accent) focus:outline-none border-b border-transparent hover:border-(--accent)/30 transition cursor-pointer max-w-[100px] truncate"
+                            value={selectedComps[project.id] || ""}
+                            onchange={(e) => selectedComps[project.id] = (e.target as HTMLSelectElement).value}
+                          >
+                            <option value="" class="bg-slate-900">Active Queue</option>
+                            {#each project.compositions as comp}
+                              <option value={comp} class="bg-slate-900">{comp}</option>
+                            {/each}
+                          </select>
+                        {/if}
+                        <button 
+                          class="text-[10px] uppercase font-bold text-emerald-400 hover:underline disabled:opacity-50"
+                          onclick={() => onRunAerender(project.path, project.name, mfrEnabled, selectedComps[project.id])}
+                          disabled={busy === `render-${project.path}`}
+                        >
+                          {busy === `render-${project.path}` ? "Starting..." : "Render"}
+                        </button>
+                      </div>
                     </div>
                   </div>
-                  <div class="h-6 w-px bg-white/10"></div>
-                {/if}
+                </div>
                 
-                <div class="flex items-center gap-1.5">
+              <div class="flex items-center gap-1.5">
                    <span class="text-[10px] uppercase tracking-wider text-(--muted) mr-1">Save as</span>
                    {#each ["2023", "2022", "2020"] as ver}
                     <button
@@ -152,6 +194,46 @@
                 </div>
               </div>
             </div>
+
+            {#if project.width || project.height || project.fps || (project.plugins && project.plugins.length > 0) || project.missingFootage > 0}
+              <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-white/5 pt-3">
+                <div class="flex items-center gap-3">
+                  {#if project.width && project.height}
+                    <div class="flex items-center gap-1.5">
+                      <span class="text-[9px] uppercase tracking-widest text-(--muted)">Res</span>
+                      <span class="text-[10px] font-bold text-(--accent)">{project.width}×{project.height}</span>
+                    </div>
+                  {/if}
+                  
+                  {#if project.fps}
+                    <div class="flex items-center gap-1.5">
+                      <span class="text-[9px] uppercase tracking-widest text-(--muted)">FPS</span>
+                      <span class="text-[10px] font-bold text-(--accent)">{project.fps}</span>
+                    </div>
+                  {/if}
+                </div>
+
+                {#if project.plugins && project.plugins.length > 0}
+                  <div class="flex flex-wrap items-center gap-1.5">
+                    <span class="text-[9px] uppercase tracking-widest text-(--muted)">Plugins</span>
+                    {#each project.plugins as plugin}
+                      <span class="rounded-full border border-(--accent-2)/20 bg-(--accent-2)/5 px-1.5 py-0.5 text-[9px] font-medium text-(--accent-2)">
+                        {plugin}
+                      </span>
+                    {/each}
+                  </div>
+                {/if}
+
+                {#if project.missingFootage > 0}
+                   <div class="flex items-center gap-1.5 rounded-full border border-(--danger)/20 bg-(--danger)/5 px-2 py-0.5">
+                      <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-(--danger)"></span>
+                      <span class="text-[9px] font-bold uppercase tracking-wider text-(--danger)">
+                        {project.missingFootage} Missing Assets
+                      </span>
+                   </div>
+                {/if}
+              </div>
+            {/if}
           </div>
         {/each}
       {:else}

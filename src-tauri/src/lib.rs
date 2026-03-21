@@ -8,6 +8,7 @@ pub mod system;
 pub mod util;
 pub mod fonts;
 pub mod expressions;
+pub mod aep;
 
 use std::sync::Mutex;
 use sysinfo::System;
@@ -44,7 +45,8 @@ pub fn run() {
             commands::purge_auto_saves,
             commands::audit_project_fonts,
             commands::get_expression_logs,
-            commands::audit_project_expressions
+            commands::audit_project_expressions,
+            commands::run_aerender
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

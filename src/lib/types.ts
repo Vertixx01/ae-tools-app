@@ -87,6 +87,13 @@ export interface ProjectEntry {
   drive: string;
   autoSaveCount: number;
   autoSaveSizeMb: number;
+  width: number | null;
+  height: number | null;
+  duration: number | null;
+  fps: number | null;
+  plugins: string[];
+  compositions: string[];
+  missingFootage: number;
 }
 
 export interface ProjectIndexSnapshot {
