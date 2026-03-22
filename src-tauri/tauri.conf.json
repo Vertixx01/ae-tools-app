@@ -4,9 +4,9 @@
   "version": "0.4.0",
   "identifier": "com.vertixx.aetools",
   "build": {
-    "beforeDevCommand": "bun run dev",
+    "beforeDevCommand": "C:/Users/Vertixx/.bun/bin/bun.exe run dev",
     "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "bun run build",
+    "beforeBuildCommand": "C:/Users/Vertixx/.bun/bin/bun.exe run build",
     "frontendDist": "../build"
   },
   "app": {

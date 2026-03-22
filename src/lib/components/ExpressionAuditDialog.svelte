@@ -21,20 +21,22 @@
   const riskyCount = $derived(result?.riskyCount ?? 0);
 </script>
 
+<svelte:window onkeydown={(e) => (result || loading || logs.length > 0) && e.key === 'Escape' && onClose()} />
+
 {#if result || loading || logs.length > 0}
   <div
     class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-md"
     transition:fade={{ duration: 200 }}
     onclick={(e) => e.target === e.currentTarget && onClose()}
-    onkeydown={(e) => e.key === 'Escape' && onClose()}
-    role="button"
-    tabindex="0"
+    role="presentation"
   >
     <div
       class="w-full max-w-4xl h-[85vh] overflow-hidden rounded-[40px] flex flex-col shadow-2xl border border-white/10 bg-[#0a0a0a]"
       transition:scale={{ duration: 300, start: 0.95 }}
       onclick={(e) => e.stopPropagation()}
-      role="none"
+      role="dialog"
+      aria-modal="true"
+      tabindex="-1"
     >
       <!-- Header -->
       <div class="px-8 pt-8 pb-4 border-b border-white/5 bg-gradient-to-br from-rose-500/5 to-transparent flex items-center justify-between">
@@ -86,7 +88,7 @@
           <div class="flex flex-col items-center justify-center py-28 gap-6 text-center">
             <div class="relative">
                 <div class="h-20 w-20 animate-spin rounded-full border-2 border-rose-500/20 border-t-rose-500"></div>
-                <div class="absolute inset-0 flex items-center justify-center text-xs font-bold text-rose-400 :global(animate-shimmer)">ESLINT</div>
+                <div class="absolute inset-0 flex items-center justify-center text-xs font-bold text-rose-400 animate-shimmer">ESLINT</div>
             </div>
             <div>
                 <p class="font-bold text-rose-50 text-lg">Parsing Script Architecture</p>

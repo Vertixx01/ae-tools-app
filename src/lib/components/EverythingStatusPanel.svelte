@@ -104,7 +104,7 @@
           {busy === "everything-status" ? "Verifying Engine..." : checked ? "Re-Check Integration" : "Verify Integration"}
         </button>
         
-        {#if !status?.available}
+        {#if checked && !status?.available}
           <button
             class="rounded-xl bg-blue-500 px-5 py-2.5 text-[10px] font-bold uppercase tracking-widest text-slate-950 transition-all hover:bg-blue-400 hover:shadow-lg hover:shadow-blue-500/30 active:scale-95 ml-auto flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             onclick={() => onInstall("setup-x64")}
@@ -133,7 +133,7 @@
               <button
                 class="flex flex-col items-start rounded-xl border border-white/5 bg-white/2 px-4 py-3 text-left transition-all hover:border-white/10 hover:bg-white/5 active:scale-[0.98] disabled:opacity-40"
                 onclick={() => onInstall(option.id)}
-                disabled={busy === installToken(option.id)}
+                disabled={!!busy}
               >
                 <span class="text-[11px] font-bold text-white mb-0.5">{busy === installToken(option.id) ? "Pulling Payload..." : option.label}</span>
                 <span class="text-[9px] text-(--muted) font-medium">{option.hint}</span>

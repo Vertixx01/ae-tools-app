@@ -9,7 +9,6 @@ pub struct AepMetadata {
     pub height: Option<u32>,
     pub fps: Option<f32>,
     pub plugins: Vec<String>,
-    pub contributions: Vec<String>,
     pub compositions: Vec<String>,
     pub missing_footage: usize,
 }
@@ -20,6 +19,8 @@ const EGG:  [u8; 4] = *b"Egg!";
 const CDTA: [u8; 4] = *b"cdta";
 const LIST: [u8; 4] = *b"LIST";
 const UTF8: [u8; 4] = *b"Utf8";
+
+const MAX_LIST_DEPTH: usize = 64;
 
 pub fn analyze_aep(path: &str) -> AepMetadata {
     let mut meta = AepMetadata::default();
@@ -39,7 +40,7 @@ pub fn analyze_aep(path: &str) -> AepMetadata {
     let mut found_comps = BTreeSet::new();
 
     // 2. Structured Metadata Extraction (cdta/idta)
-    walk_chunks(&data, 12, limit, &mut meta, &mut found_paths, &mut found_comps);
+    walk_chunks(&data, 12, limit, 0, &mut meta, &mut found_paths, &mut found_comps);
 
     // 3. Filter and update meta
     let comp_blocklist = [
@@ -58,7 +59,15 @@ pub fn analyze_aep(path: &str) -> AepMetadata {
         
         // 2. Technical String Filters
         let is_json = c.starts_with('{') || c.ends_with('}');
-        let is_uuid = c.len() >= 32 && (c.contains('-') || c.chars().all(|ch| ch.is_ascii_hexdigit()));
+        
+        // Strict UUID check (Canonical hyphenated form: 8-4-4-4-12)
+        let is_uuid = c.len() == 36 
+            && c.chars().nth(8) == Some('-') 
+            && c.chars().nth(13) == Some('-') 
+            && c.chars().nth(18) == Some('-') 
+            && c.chars().nth(23) == Some('-')
+            && c.chars().all(|ch| ch.is_ascii_hexdigit() || ch == '-');
+
         let is_internal = comp_blocklist.iter().any(|&bad| c.eq_ignore_ascii_case(bad));
         let is_locale = c.len() == 5 && c.chars().nth(2) == Some('_');
         
@@ -99,10 +108,12 @@ fn walk_chunks(
     data: &[u8], 
     start: usize, 
     end: usize, 
+    depth: usize,
     meta: &mut AepMetadata, 
     found_paths: &mut BTreeSet<String>,
     found_comps: &mut BTreeSet<String>
 ) {
+    if depth >= MAX_LIST_DEPTH { return; }
     let mut pos = start;
 
     while pos + 8 <= end {
@@ -113,7 +124,7 @@ fn walk_chunks(
 
         if tag == LIST {
             if chunk_start + 4 <= chunk_end {
-                walk_chunks(data, chunk_start + 4, chunk_end, meta, found_paths, found_comps);
+                walk_chunks(data, chunk_start + 4, chunk_end, depth + 1, meta, found_paths, found_comps);
             }
         } else if tag == CDTA {
             // Composition Data

@@ -264,7 +264,7 @@
                     <span class="rounded-full border border-indigo-500/20 bg-indigo-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-indigo-400">
                       {group.source}
                     </span>
-                    <span class="text-[10px] uppercase font-bold tracking-widest text-(--muted)">{group.count} modules limit</span>
+                    <span class="text-[10px] uppercase font-bold tracking-widest text-(--muted)">{group.count} {group.count === 1 ? 'module' : 'modules'} limit</span>
                   </div>
                   <div class="flex items-center gap-4 text-[9px] uppercase font-bold tracking-[0.2em] text-(--muted)">
                     {#if group.unsigned > 0}

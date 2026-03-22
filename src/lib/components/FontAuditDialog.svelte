@@ -11,26 +11,29 @@
   let { result, loading, onClose }: Props = $props();
 </script>
 
+<svelte:window onkeydown={(e) => (result || loading) && e.key === 'Escape' && onClose()} />
+
 {#if result || loading}
   <div 
     class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4"
     transition:fade={{ duration: 200 }}
     onclick={(e) => e.target === e.currentTarget && onClose()}
-    role="button"
-    tabindex="0"
-    onkeydown={(e) => e.key === 'Escape' && onClose()}
+    role="presentation"
   >
     <div 
       class="w-full max-w-2xl overflow-hidden rounded-[40px] border border-white/10 bg-[#0a0a0a] shadow-2xl flex flex-col max-h-[90vh]" 
       transition:scale={{ duration: 300, start: 0.95 }}
       onclick={(e) => e.stopPropagation()}
-      role="none"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="dialog-title"
+      tabindex="-1"
     >
       <!-- Header -->
       <div class="px-8 pt-8 pb-6 border-b border-white/5 bg-gradient-to-br from-indigo-500/5 to-transparent">
         <div class="flex items-center justify-between">
           <div>
-            <h2 class="text-2xl font-bold tracking-tight text-indigo-100">Typography Audit</h2>
+            <h2 id="dialog-title" class="text-2xl font-bold tracking-tight text-indigo-100">Typography Audit</h2>
             <p class="text-[10px] text-indigo-400/70 mono mt-1 uppercase tracking-widest font-semibold flex items-center gap-2">
                 <span class="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse"></span>
                 Binary Registry Analysis

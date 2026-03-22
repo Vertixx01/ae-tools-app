@@ -40,8 +40,8 @@
 
     <div class="h-2 w-full overflow-hidden rounded-full bg-black/50 border border-white/5 shadow-inner">
       <div 
-        class="h-full rounded-full {colorProfile.bg} shadow-[0_0_12px_currentColor]" 
-        style="width: {healthScore}%; box-shadow: 0 0 10px var(--tw-shadow-color);"
+        class="h-full rounded-full {colorProfile.bg} drop-shadow-[0_0_8px_currentColor]" 
+        style="width: {healthScore}%;"
       ></div>
     </div>
   </div>

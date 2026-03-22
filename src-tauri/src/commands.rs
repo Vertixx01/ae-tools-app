@@ -33,8 +33,7 @@ pub fn reveal_in_explorer(path: String) -> Result<(), String> {
     #[cfg(target_os = "windows")]
     {
         Command::new("explorer")
-            .arg("/select,")
-            .arg(path)
+            .arg(format!("/select,{}", path))
             .spawn()
             .map_err(|e| e.to_string())?;
     }
@@ -363,7 +362,7 @@ pub fn run_aerender(
         if let (Some(parent), Some(stem)) = (path_buf.parent(), path_buf.file_stem()) {
             let render_dir = parent.join("renders");
             if !render_dir.exists() {
-                let _ = std::fs::create_dir_all(&render_dir);
+                std::fs::create_dir_all(&render_dir).map_err(|e| format!("Failed to create render directory {}: {}", render_dir.display(), e))?;
             }
             let output_file = render_dir.join(format!("{}.mp4", stem.to_string_lossy()));
             cmd.arg("-output").arg(output_file);

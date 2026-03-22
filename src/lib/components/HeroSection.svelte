@@ -76,7 +76,7 @@
       >
         <div class="absolute inset-0 -translate-x-full bg-linear-to-r from-transparent via-white/30 to-transparent group-hover:animate-shimmer"></div>
         <span class="relative z-10 flex items-center gap-2">
-           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" class={loading ? "animate-spin" : ""}><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.92-10.44l5.36 5.36"/></svg>
+           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" class={loading ? "animate-spin" : ""}><path d="M21 12a9 9 0 1 1-9-9 9.75 9.75 0 0 1 6.74 2.74L21 8M21 3v5h-5"/></svg>
            {loading ? "Scanning System Core..." : "Refresh Diagnostic Scan"}
         </span>
       </button>
@@ -158,13 +158,4 @@
 </section>
 
 <style>
-  @keyframes shimmer {
-    100% {
-      transform: translateX(100%);
-    }
-  }
-
-  :global(.animate-shimmer) {
-    animation: shimmer 1.5s infinite;
-  }
 </style>

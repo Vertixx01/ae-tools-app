@@ -1,5 +1,18 @@
 @import "tailwindcss";
 
+@theme {
+  --animate-shimmer: shimmer 2s infinite;
+
+  @keyframes shimmer {
+    from {
+      transform: translateX(-100%);
+    }
+    to {
+      transform: translateX(100%);
+    }
+  }
+}
+
 :root {
   --bg: #030303;
   --bg-soft: #0a0a0a;
