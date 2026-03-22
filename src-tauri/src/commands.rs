@@ -19,8 +19,46 @@ use crate::system::{
 };
 use crate::AppState;
 use std::io::{BufRead, BufReader};
-use std::process::Stdio;
+use std::path::Path;
+use std::process::{Command, Stdio};
 use tauri::{Emitter, State, Window};
+
+#[tauri::command]
+pub fn reveal_in_explorer(path: String) -> Result<(), String> {
+    let p = Path::new(&path);
+    if !p.exists() {
+        return Err("File does not exist".to_string());
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        Command::new("explorer")
+            .arg("/select,")
+            .arg(path)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        Command::new("open")
+            .arg("-R")
+            .arg(path)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        let parent = p.parent().unwrap_or(Path::new("/"));
+        Command::new("xdg-open")
+            .arg(parent)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+
+    Ok(())
+}
 
 #[tauri::command]
 pub fn get_scan_snapshot() -> Result<ScanSnapshot, String> {
@@ -265,12 +303,8 @@ pub fn audit_project_expressions(path: String) -> Result<ExpressionAuditResult, 
 
 #[tauri::command]
 pub fn run_aerender(
-    project_path: String,
+    options: crate::models::RenderOptions,
     window: Window,
-    mfr: bool,
-    cpu_percent: Option<u8>,
-    om_template: Option<String>,
-    comp: Option<String>,
 ) -> Result<ActionResult, String> {
     let installs = find_ae_installs();
     let install = installs
@@ -281,50 +315,92 @@ pub fn run_aerender(
     let exe = install.aerender_path.as_ref().unwrap();
 
     let mut cmd = std::process::Command::new(exe);
-    cmd.arg("-project")
-        .arg(&project_path)
-        .arg("-reuse")
-        .arg("-continueOnMissingFootage")
-        .arg("-v")
-        .arg("ERRORS_AND_PROGRESS")
-        .arg("-sound")
-        .arg("ON");
+    
+    // Core Project and State
+    cmd.arg("-project").arg(&options.project_path);
+    
+    if options.reuse {
+        cmd.arg("-reuse");
+    }
+    
+    if options.continue_on_missing {
+        cmd.arg("-continueOnMissingFootage");
+    }
+    
+    cmd.arg("-v").arg("ERRORS_AND_PROGRESS");
+    cmd.arg("-sound").arg(if options.sound { "ON" } else { "OFF" });
 
-    // FALLBACK: If we want to use -output and -OMtemplate, we MUST specify a comp or rqindex.
-    if let Some(c) = comp {
+    // Target Selection
+    if let Some(c) = options.comp {
         cmd.arg("-comp").arg(c);
     } else {
-        // We'll default to the first item in the Render Queue (-rqindex 1) if no comp is specified.
         cmd.arg("-rqindex").arg("1");
     }
 
-    // Default to H.264 for MP4 outputs in modern AE versions
-    let template = om_template.unwrap_or_else(|| "H.264".to_string());
-    cmd.arg("-OMtemplate").arg(&template);
-
-    // Map template to extension
-    let ext = match template.to_uppercase().as_str() {
-        "H.264" | "H264" | "MP4" => "mp4",
-        "PRORES" | "QUICKTIME" => "mov",
-        "LOSSLESS" => "avi",
-        _ => "mp4",
-    };
-
-    // Construct a sensible default output path
-    let project_path_buf = std::path::Path::new(&project_path);
-    if let (Some(parent), Some(stem)) = (project_path_buf.parent(), project_path_buf.file_stem()) {
-        let render_dir = parent.join("renders");
-        if !render_dir.exists() {
-            std::fs::create_dir_all(&render_dir).map_err(|e| format!("Failed to create render directory: {}", e))?;
-        }
-        let output_file = render_dir.join(format!("{}.{}", stem.to_string_lossy(), ext));
-        cmd.arg("-output").arg(output_file);
+    // Templates
+    if let Some(template) = options.om_template {
+        cmd.arg("-OMtemplate").arg(template);
+    }
+    
+    if let Some(template) = options.rs_template {
+        cmd.arg("-RStemplate").arg(template);
     }
 
-    if mfr {
-        cmd.arg("-mfr")
-            .arg("ON")
-            .arg(cpu_percent.unwrap_or(90).to_string());
+    // Frame Range
+    if let Some(start) = options.start_frame {
+        cmd.arg("-s").arg(start.to_string());
+    }
+    if let Some(end) = options.end_frame {
+        cmd.arg("-e").arg(end.to_string());
+    }
+
+    // Output Path
+    if let Some(output) = options.output_path {
+        cmd.arg("-output").arg(output);
+    } else {
+        // Fallback or default output logic
+        let path_buf = std::path::Path::new(&options.project_path);
+        if let (Some(parent), Some(stem)) = (path_buf.parent(), path_buf.file_stem()) {
+            let render_dir = parent.join("renders");
+            if !render_dir.exists() {
+                let _ = std::fs::create_dir_all(&render_dir);
+            }
+            let output_file = render_dir.join(format!("{}.mp4", stem.to_string_lossy()));
+            cmd.arg("-output").arg(output_file);
+        }
+    }
+
+    // Optimization Settings
+    if options.mfr {
+        cmd.arg("-mfr").arg("ON").arg(options.cpu_percent.to_string());
+    }
+
+    // Memory Usage (max_mem image_cache)
+    if options.max_mem > 0 || options.image_cache > 0 {
+        cmd.arg("-mem_usage")
+           .arg(options.max_mem.to_string())
+           .arg(options.image_cache.to_string());
+    }
+
+    // CPU Priority (Windows Specific)
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        const IDLE_PRIORITY_CLASS: u32 = 0x00000040;
+        const BELOW_NORMAL_PRIORITY_CLASS: u32 = 0x00004000;
+        const NORMAL_PRIORITY_CLASS: u32 = 0x00000020;
+        const ABOVE_NORMAL_PRIORITY_CLASS: u32 = 0x00008000;
+        const HIGH_PRIORITY_CLASS: u32 = 0x00000080;
+
+        let flag = match options.priority.as_str() {
+            "Low" => IDLE_PRIORITY_CLASS,
+            "BelowNormal" => BELOW_NORMAL_PRIORITY_CLASS,
+            "Normal" => NORMAL_PRIORITY_CLASS,
+            "AboveNormal" => ABOVE_NORMAL_PRIORITY_CLASS,
+            "High" => HIGH_PRIORITY_CLASS,
+            _ => NORMAL_PRIORITY_CLASS,
+        };
+        cmd.creation_flags(flag);
     }
 
     let mut child = cmd
@@ -336,7 +412,7 @@ pub fn run_aerender(
     let stdout = child.stdout.take().ok_or("Failed to open stdout")?;
     let stderr = child.stderr.take().ok_or("Failed to open stderr")?;
 
-    // Stream Stdout
+    // Stream Output
     let win_out = window.clone();
     std::thread::spawn(move || {
         let reader = BufReader::new(stdout);
@@ -347,7 +423,6 @@ pub fn run_aerender(
         }
     });
 
-    // Stream Stderr
     let win_err = window.clone();
     std::thread::spawn(move || {
         let reader = BufReader::new(stderr);
@@ -360,37 +435,22 @@ pub fn run_aerender(
 
     // Monitor Finish
     let win_finish = window.clone();
-    let p_path = project_path.clone();
+    let p_path = options.project_path.clone();
     std::thread::spawn(move || match child.wait() {
         Ok(status) if status.success() => {
-            win_finish
-                .emit(
-                    "render-finished",
-                    format!("Successfully rendered {}", p_path),
-                )
-                .ok();
+            win_finish.emit("render-finished", format!("Successfully rendered {}", p_path)).ok();
         }
         Ok(status) => {
-            win_finish
-                .emit(
-                    "render-finished",
-                    format!("Render failed: {} (code {})", p_path, status),
-                )
-                .ok();
+            win_finish.emit("render-finished", format!("Render failed: {} (code {})", p_path, status)).ok();
         }
         Err(e) => {
-            win_finish
-                .emit(
-                    "render-finished",
-                    format!("Render error: {} - {}", p_path, e),
-                )
-                .ok();
+            win_finish.emit("render-finished", format!("Render error: {} - {}", p_path, e)).ok();
         }
     });
 
     Ok(ActionResult {
         success: true,
-        message: "Background render started. Log streaming active...".into(),
-        details: vec![project_path, exe.clone()],
+        message: "Advanced rendering started...".into(),
+        details: vec![options.project_path, exe.clone()],
     })
 }

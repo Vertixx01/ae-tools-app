@@ -25,6 +25,7 @@ try {
   gpu = [string]$gpu.Name
   ramGb = [math]::Round(($computer.TotalPhysicalMemory / 1GB), 1)
   powerScheme = $power
+  isAdmin = [bool](([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator"))
 } | ConvertTo-Json -Compress
 "#;
 

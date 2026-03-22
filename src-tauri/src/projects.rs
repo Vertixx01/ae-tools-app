@@ -350,7 +350,7 @@ fn try_everything_index(limit: usize, mode: &str) -> Option<ProjectIndexSnapshot
             "-date-format",
             "1",
             "-size-format",
-            "3",
+            "0",
             "-sort",
             "date-modified-descending",
             "-max-results",
@@ -398,13 +398,13 @@ fn try_everything_index(limit: usize, mode: &str) -> Option<ProjectIndexSnapshot
             size_mb: row
                 .size_mb
                 .and_then(|value| value.parse::<f64>().ok())
+                .map(|b| (b / (1024.0 * 1024.0) * 10.0).round() / 10.0)
                 .unwrap_or(0.0),
             drive: normalized.chars().take(2).collect::<String>(),
             auto_save_count,
             auto_save_size_mb,
             width: aep_meta.width,
             height: aep_meta.height,
-            duration: aep_meta.duration,
             fps: aep_meta.fps,
             plugins: aep_meta.plugins,
             compositions: aep_meta.compositions,
@@ -509,7 +509,6 @@ fn scan_projects_under(root: &Path, projects: &mut Vec<ProjectEntry>, limit: usi
             auto_save_size_mb,
             width: aep_meta.width,
             height: aep_meta.height,
-            duration: aep_meta.duration,
             fps: aep_meta.fps,
             plugins: aep_meta.plugins,
             compositions: aep_meta.compositions,

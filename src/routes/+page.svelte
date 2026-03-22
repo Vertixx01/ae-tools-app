@@ -37,6 +37,8 @@
     FontAuditResult,
     ExpressionError,
     ExpressionAuditResult,
+    ProjectEntry,
+    RenderOptions,
   } from "$lib/types";
   import HeroSection from "$lib/components/HeroSection.svelte";
   import HealthScoreCard from "$lib/components/HealthScoreCard.svelte";
@@ -52,6 +54,7 @@
   import SystemProfileCard from "$lib/components/SystemProfileCard.svelte";
   import ToastBanner from "$lib/components/ToastBanner.svelte";
   import RenderLogDialog from "$lib/components/RenderLogDialog.svelte";
+  import RenderSettingsDialog from "$lib/components/RenderSettingsDialog.svelte";
   import { listen } from "@tauri-apps/api/event";
   import { getAllCachePaths, getHealthScore } from "$lib/dashboard";
 
@@ -77,7 +80,9 @@
 
   let renderLogs = $state<{ message: string; timestamp: Date }[]>([]);
   let renderLogVisible = $state(false);
+  let renderSettingsVisible = $state(false);
   let currentProjectName = $state("");
+  let projectForSettings = $state<ProjectEntry | null>(null);
 
   const healthScore = $derived.by(() => getHealthScore(snapshot));
   const noisyStartupItems = $derived.by(
@@ -157,10 +162,14 @@
     }, 4000);
   }
 
-  async function act<T>(key: string, fn: () => Promise<T>): Promise<T> {
+  async function act<T>(key: string, fn: () => Promise<T>): Promise<T | null> {
     busy = key;
     try {
-      return await fn();
+      const result = await fn();
+      return result;
+    } catch (e) {
+      flash({ success: false, message: String(e), details: [] }, "error");
+      return null;
     } finally {
       busy = null;
     }
@@ -170,24 +179,30 @@
     const result = await act<ActionResult>("cache-all", () =>
       clearDirectories(allCachePaths),
     );
-    flash(result, result.success ? "success" : "error");
-    await refresh();
+    if (result) {
+      flash(result, result.success ? "success" : "error");
+      await refresh();
+    }
   }
 
   async function handleApplyPower(mode: "stable" | "performance") {
     const result = await act<ActionResult>(`power-${mode}`, () =>
       applyPowerProfile(mode),
     );
-    flash(result, result.success ? "success" : "error");
-    await refresh();
+    if (result) {
+      flash(result, result.success ? "success" : "error");
+      await refresh();
+    }
   }
 
   async function purgeGlobalMediaCache() {
     const result = await act<ActionResult>("purge-global", () =>
         clearDirectories(snapshot?.globalCaches ?? []),
     );
-    flash(result, result.success ? "success" : "error");
-    await refresh();
+    if (result) {
+      flash(result, result.success ? "success" : "error");
+      await refresh();
+    }
   }
 
   async function handleSetPerformanceMode(install: AfterEffectsInstall, mode: PerformanceMode) {
@@ -195,8 +210,10 @@
     const result = await act<ActionResult>(`perf-${install.id}`, () =>
       setPerformanceMode(install.exePath!, mode),
     );
-    flash(result, result.success ? "success" : "error");
-    await refresh();
+    if (result) {
+      flash(result, result.success ? "success" : "error");
+      await refresh();
+    }
   }
 
   async function handleClearInstall(kind: "cache" | "profile", install: AfterEffectsInstall) {
@@ -204,32 +221,40 @@
     const result = await act<ActionResult>(`clear-${kind}-${install.id}`, () =>
       clearDirectories(paths),
     );
-    flash(result, result.success ? "success" : "error");
-    await refresh();
+    if (result) {
+      flash(result, result.success ? "success" : "error");
+      await refresh();
+    }
   }
 
   async function handleDisableStartup(item: StartupItem) {
     const result = await act<ActionResult>(`startup-${item.id}`, () =>
       disableStartupItem(item),
     );
-    flash(result, result.success ? "success" : "error");
-    await refresh();
+    if (result) {
+      flash(result, result.success ? "success" : "error");
+      await refresh();
+    }
   }
 
   async function handleTogglePlugin(install: AfterEffectsInstall, plugin: PluginEntry, enable: boolean) {
     const result = await act<ActionResult>(`toggle-${plugin.id}`, () =>
       togglePlugin(plugin.path, enable),
     );
-    flash(result, result.success ? "success" : "error");
-    await refresh();
+    if (result) {
+      flash(result, result.success ? "success" : "error");
+      await refresh();
+    }
   }
 
   async function handleInstallScript(install: AfterEffectsInstall, scriptPath: string) {
     const result = await act<ActionResult>(`install-script-${install.id}`, () =>
       installAeScript(install.id, scriptPath),
     );
-    flash(result, result.success ? "success" : "error");
-    await refresh();
+    if (result) {
+      flash(result, result.success ? "success" : "error");
+      await refresh();
+    }
   }
 
   function openPath(path: string | null) {
@@ -240,17 +265,21 @@
     const result = await act<ActionResult>(`convert-${path}`, () =>
       downConvertAep(path, version),
     );
-    flash(result, result.success ? "success" : "error");
+    if (result) {
+      flash(result, result.success ? "success" : "error");
+    }
   }
 
   async function purgeProjectAutoSaves(path: string) {
     const result = await act<ActionResult>(`purge-as-${path}`, () =>
       purgeAutoSaves(path),
     );
-    flash(result, result.success ? "success" : "error");
-    await refreshProjectIndex(
-      projectIndex?.scannedMode === "full" ? "full" : "quick",
-    );
+    if (result) {
+      flash(result, result.success ? "success" : "error");
+      await refreshProjectIndex(
+        projectIndex?.scannedMode === "full" ? "full" : "quick",
+      );
+    }
   }
 
   async function performFontAudit(path: string) {
@@ -276,12 +305,24 @@
     }
   }
 
-  async function performAerender(path: string, name: string, mfr: boolean = true, comp?: string) {
+  function performAerender(path: string, name: string) {
+    const project = projectIndex?.projects.find(p => p.path === path);
+    if (project) {
+        projectForSettings = project;
+        renderSettingsVisible = true;
+    } else {
+        flash({ success: false, message: "Project context not found in index.", details: [] }, "error");
+    }
+  }
+
+  async function handleStartRender(options: RenderOptions) {
+    renderSettingsVisible = false;
     renderLogs = [];
-    currentProjectName = name;
+    currentProjectName = projectForSettings?.name || "Rendering Project";
     renderLogVisible = true;
+    
     try {
-      const result = await runAerender(path, mfr, 90, undefined, comp);
+      const result = await runAerender(options);
       flash(result, result.success ? "success" : "error");
     } catch (e) {
       flash({ success: false, message: String(e), details: [] }, "error");
@@ -311,10 +352,11 @@
   });
 
   function handleProjectPlugins(_path: string, plugins: string[]) {
+    const hasPlugins = plugins && plugins.length > 0;
     flash({
       success: true,
-      message: `Project Plugins: ${plugins.join(", ")}`,
-      details: plugins
+      message: hasPlugins ? `Project Plugins: ${plugins.join(", ")}` : "No external plugins detected in this project.",
+      details: hasPlugins ? plugins : ["Clean project"]
     }, "success");
   }
 </script>
@@ -343,14 +385,21 @@
       items={noisyStartupItems} 
       totalCount={snapshot?.startupItems.length ?? 0}
       {busy}
+      isAdmin={snapshot?.system.isAdmin ?? false}
       onDisable={handleDisableStartup}
     />
-    <div class="panel flex flex-col items-center justify-center p-6 text-center">
-      <p class="text-xs uppercase tracking-widest text-(--muted)">Status</p>
+    <div class="relative overflow-hidden rounded-[32px] border border-white/5 bg-white/2 p-6 md:p-8 flex flex-col items-center justify-center text-center group">
+      <div class="absolute inset-0 bg-emerald-500/5 opacity-0 group-hover:opacity-100 transition duration-500 pointer-events-none mix-blend-screen"></div>
+      <p class="text-[10px] font-bold uppercase tracking-[0.2em] text-(--muted) mb-3">System Diagnostics</p>
       {#if loading}
-        <div class="mt-2 h-8 w-8 animate-spin rounded-full border-2 border-(--accent)/20 border-t-(--accent)"></div>
+        <div class="h-10 w-10 animate-spin rounded-full border-2 border-emerald-500/20 border-t-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.5)]"></div>
+        <p class="mt-4 text-[11px] font-bold uppercase tracking-widest text-white animate-pulse">Running Scans...</p>
       {:else}
-        <p class="mt-2 text-2xl font-bold text-(--accent)">Optimal</p>
+        <div class="relative flex items-center justify-center">
+          <div class="absolute inset-0 bg-emerald-500 blur-[20px] opacity-20 rounded-full"></div>
+          <p class="relative z-10 text-4xl font-black tracking-tighter text-emerald-400 drop-shadow-lg">Optimal</p>
+        </div>
+        <p class="mt-3 text-[10px] font-medium text-(--muted) max-w-[150px] leading-relaxed">All core subsystems verify nominal operations.</p>
       {/if}
     </div>
   </div>
@@ -430,5 +479,14 @@
   visible={renderLogVisible}
   onClose={() => (renderLogVisible = false)}
 />
+
+{#if projectForSettings}
+  <RenderSettingsDialog
+    project={projectForSettings}
+    visible={renderSettingsVisible}
+    onClose={() => (renderSettingsVisible = false)}
+    onStartRender={handleStartRender}
+  />
+{/if}
 
 <ToastBanner {toast} />

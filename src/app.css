@@ -1,24 +1,25 @@
 @import "tailwindcss";
 
 :root {
-  --bg: #06131a;
-  --bg-soft: #0d1d26;
-  --panel: rgba(12, 25, 34, 0.8);
-  --panel-strong: rgba(18, 34, 46, 0.96);
-  --line: rgba(157, 217, 255, 0.12);
-  --line-strong: rgba(157, 217, 255, 0.24);
-  --text: #eef7fb;
-  --muted: #8ca4b1;
-  --accent: #7cf7ca;
-  --accent-2: #7cbcff;
-  --warn: #ffd87c;
-  --danger: #ff8f7c;
-  --shadow: 0 24px 60px rgba(0, 0, 0, 0.38);
+  --bg: #030303;
+  --bg-soft: #0a0a0a;
+  --panel: rgba(255, 255, 255, 0.02);
+  --panel-strong: rgba(255, 255, 255, 0.04);
+  --line: rgba(255, 255, 255, 0.05);
+  --line-strong: rgba(255, 255, 255, 0.1);
+  --text: #f4f4f5;
+  --muted: #a1a1aa;
+  --accent: #10b981; /* Emerald-500 */
+  --accent-2: #8b5cf6; /* Violet-500 */
+  --warn: #f59e0b; /* Amber-500 */
+  --danger: #f43f5e; /* Rose-500 */
+  --shadow: 0 32px 64px -12px rgba(0, 0, 0, 0.5);
   color: var(--text);
   background:
-    radial-gradient(circle at top left, rgba(124, 188, 255, 0.18), transparent 28%),
-    radial-gradient(circle at top right, rgba(124, 247, 202, 0.16), transparent 24%),
-    linear-gradient(180deg, #081219 0%, #061018 42%, #04090d 100%);
+    radial-gradient(circle at top right, rgba(16, 185, 129, 0.08), transparent 35%),
+    radial-gradient(circle at bottom left, rgba(139, 92, 246, 0.06), transparent 40%),
+    linear-gradient(180deg, #050505 0%, #030303 100%);
+  background-attachment: fixed;
   font-family: "Space Grotesk", sans-serif;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -85,4 +86,14 @@ select {
 * {
   scrollbar-width: thin;
   scrollbar-color: rgba(157, 217, 255, 0.1) transparent;
+}
+
+.glass-grain {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='a'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.65' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23a)'/%3E%3C/svg%3E");
+  opacity: 0.05;
+  mix-blend-mode: overlay;
 }

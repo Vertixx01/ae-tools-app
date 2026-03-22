@@ -22,6 +22,7 @@ export interface SystemOverview {
   gpu: string;
   ramGb: number;
   powerScheme: string;
+  isAdmin: boolean;
 }
 
 export interface AfterEffectsInstall {
@@ -89,7 +90,6 @@ export interface ProjectEntry {
   autoSaveSizeMb: number;
   width: number | null;
   height: number | null;
-  duration: number | null;
   fps: number | null;
   plugins: string[];
   compositions: string[];
@@ -124,6 +124,24 @@ export interface RenderStatus {
   processes: RenderProcess[];
   totalCpu: number;
   totalMemoryMb: number;
+}
+
+export interface RenderOptions {
+  projectPath: string;
+  comp?: string;
+  outputPath?: string;
+  omTemplate?: string;
+  rsTemplate?: string;
+  mfr: boolean;
+  cpuPercent: number;
+  maxMem: number;
+  imageCache: number;
+  priority: "Low" | "BelowNormal" | "Normal" | "AboveNormal" | "High";
+  startFrame?: number;
+  endFrame?: number;
+  sound: boolean;
+  continueOnMissing: boolean;
+  reuse: boolean;
 }
 
 export interface FontEntry {

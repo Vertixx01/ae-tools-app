@@ -23,6 +23,7 @@ pub struct SystemOverview {
     pub gpu: String,
     pub ram_gb: f64,
     pub power_scheme: String,
+    pub is_admin: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -120,7 +121,6 @@ pub struct ProjectEntry {
     pub auto_save_size_mb: f64,
     pub width: Option<u32>,
     pub height: Option<u32>,
-    pub duration: Option<f64>,
     pub fps: Option<f32>,
     pub plugins: Vec<String>,
     pub compositions: Vec<String>,
@@ -155,6 +155,26 @@ pub struct RenderStatus {
     pub processes: Vec<RenderProcess>,
     pub total_cpu: f32,
     pub total_memory_mb: u64,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct RenderOptions {
+    pub project_path: String,
+    pub comp: Option<String>,
+    pub output_path: Option<String>,
+    pub om_template: Option<String>,
+    pub rs_template: Option<String>,
+    pub mfr: bool,
+    pub cpu_percent: u8,
+    pub max_mem: u8,
+    pub image_cache: u8,
+    pub priority: String, // "Low" | "BelowNormal" | "Normal" | "AboveNormal" | "High"
+    pub start_frame: Option<u32>,
+    pub end_frame: Option<u32>,
+    pub sound: bool,
+    pub continue_on_missing: bool,
+    pub reuse: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

@@ -1,6 +1,6 @@
 [package]
 name = "ae-tools-app"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2021"
 description = "Background helper service powering the Aether FX Optimizer desktop UI."
 license = "MIT"
@@ -16,7 +16,7 @@ keywords = [
     "everything-index",
 ]
 categories = ["application", "utilities"]
-authors = ["Vertixx <hmu@vertixx.baby>"]
+authors = ["Vertixx <hmu@vertixx.lol>"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -38,3 +38,4 @@ serde_json = "1"
 sysinfo = "0.38.4"
 tauri-plugin-dialog = "2.6.0"
 dirs = "6"
+tauri-plugin-fs = "2.4.5"

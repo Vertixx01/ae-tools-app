@@ -7,7 +7,6 @@ use std::collections::BTreeSet;
 pub struct AepMetadata {
     pub width: Option<u32>,
     pub height: Option<u32>,
-    pub duration: Option<f64>,
     pub fps: Option<f32>,
     pub plugins: Vec<String>,
     pub contributions: Vec<String>,
@@ -36,10 +35,51 @@ pub fn analyze_aep(path: &str) -> AepMetadata {
     let file_size = u32::from_be_bytes([data[4], data[5], data[6], data[7]]) as usize;
     let limit = (12 + file_size - 4).min(data.len());
 
-    // 2. Structured Metadata Extraction (cdta/idta)
-    walk_chunks(&data, 12, limit, &mut meta);
+    let mut found_paths = BTreeSet::new();
+    let mut found_comps = BTreeSet::new();
 
-    // 3. Plugin Audit (Byte-scan for Match Names and 3rd party keywords)
+    // 2. Structured Metadata Extraction (cdta/idta)
+    walk_chunks(&data, 12, limit, &mut meta, &mut found_paths, &mut found_comps);
+
+    // 3. Filter and update meta
+    let comp_blocklist = [
+        "Top", "Back", "Left", "Right", "Bottom", "Front", 
+        "Custom View 1", "Custom View 2", "Custom View 3",
+        "Markers", "Untitled", "en_US", "Default", "lutInterpolationMethod",
+        "Linear", "Cubic", "None", "Hidden", "Visible", "Locked",
+        "Solids", "Null Objects", "Footage", "Pre-comps", "Compositions",
+        "Audio", "Video", "Adjustments", "Render Settings", "Output Module"
+    ];
+
+    meta.compositions.extend(found_comps.into_iter().filter(|c| {
+        // 1. Length and Character Check
+        let is_valid_len = c.len() > 2 && c.len() < 120;
+        let has_alpha = c.chars().any(|ch| ch.is_alphabetic());
+        
+        // 2. Technical String Filters
+        let is_json = c.starts_with('{') || c.ends_with('}');
+        let is_uuid = c.len() >= 32 && (c.contains('-') || c.chars().all(|ch| ch.is_ascii_hexdigit()));
+        let is_internal = comp_blocklist.iter().any(|&bad| c.eq_ignore_ascii_case(bad));
+        let is_locale = c.len() == 5 && c.chars().nth(2) == Some('_');
+        
+        // 3. Metadata Key Heuristic
+        let is_path_like = c.contains('\\') || c.contains('/') || c.contains('.');
+        let is_likely_metadata = c.starts_with('_') || c.contains(':') || c.starts_with('(');
+
+        is_valid_len && has_alpha && !is_json && !is_uuid && !is_internal && !is_locale && !is_path_like && !is_likely_metadata
+    }));
+
+    for path in found_paths {
+        let p = Path::new(&path);
+        // Only check relative paths to avoid false positives from absolute source paths
+        if !p.is_absolute() && !has_drive_prefix(&path) {
+            if !p.exists() {
+                meta.missing_footage += 1;
+            }
+        }
+    }
+
+    // 4. Plugin Audit (Byte-scan for Match Names and 3rd party keywords)
     meta.plugins = audit_plugins(&data);
 
     meta
@@ -55,10 +95,15 @@ fn read_be_u16(data: &[u8], pos: usize) -> u16 {
     u16::from_be_bytes([data[pos], data[pos+1]])
 }
 
-fn walk_chunks(data: &[u8], start: usize, end: usize, meta: &mut AepMetadata) {
+fn walk_chunks(
+    data: &[u8], 
+    start: usize, 
+    end: usize, 
+    meta: &mut AepMetadata, 
+    found_paths: &mut BTreeSet<String>,
+    found_comps: &mut BTreeSet<String>
+) {
     let mut pos = start;
-    let mut found_paths = BTreeSet::new();
-    let mut found_comps = BTreeSet::new();
 
     while pos + 8 <= end {
         let tag = &data[pos..pos+4];
@@ -68,7 +113,7 @@ fn walk_chunks(data: &[u8], start: usize, end: usize, meta: &mut AepMetadata) {
 
         if tag == LIST {
             if chunk_start + 4 <= chunk_end {
-                walk_chunks(data, chunk_start + 4, chunk_end, meta);
+                walk_chunks(data, chunk_start + 4, chunk_end, meta, found_paths, found_comps);
             }
         } else if tag == CDTA {
             // Composition Data
@@ -102,29 +147,21 @@ fn walk_chunks(data: &[u8], start: usize, end: usize, meta: &mut AepMetadata) {
         let padded = if size % 2 != 0 { size + 1 } else { size };
         pos = chunk_start + padded;
     }
+}
 
-    // Filter and update meta
-    meta.compositions.extend(found_comps.into_iter().filter(|c| {
-        // Simple heuristic: comps usually aren't numeric or standard metadata tags
-        c.chars().any(|ch| ch.is_alphabetic()) && c.len() > 2
-    }));
-
-    for path in found_paths {
-        if !Path::new(&path).exists() {
-            meta.missing_footage += 1;
-        }
-    }
+fn has_drive_prefix(s: &str) -> bool {
+    s.len() > 2 
+        && s.chars().next().map(|c| c.is_ascii_alphabetic()).unwrap_or(false) 
+        && s.chars().nth(1) == Some(':') 
+        && s.chars().nth(2) == Some('\\')
 }
 
 fn is_likely_path(s: &str) -> bool {
     if s.len() < 5 || s.len() > 300 { return false; }
-    // Drive letter like C:\ or unc path \\
-    let is_drive = s.len() > 2 
-        && s.chars().next().map(|c| c.is_ascii_alphabetic()).unwrap_or(false) 
-        && s.chars().nth(1) == Some(':') 
-        && s.chars().nth(2) == Some('\\');
-
-    if is_drive || s.starts_with("\\\\") {
+    
+    // Windows: Drive letter like C:\ or unc path \\
+    // Unix/mac/UNC: Starts with / or ~/ or \\
+    if has_drive_prefix(s) || s.starts_with("\\\\") || s.starts_with('/') || s.starts_with("~/") {
         return true;
     }
     // Check for common footage extensions

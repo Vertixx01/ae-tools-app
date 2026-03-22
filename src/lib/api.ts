@@ -11,6 +11,7 @@ import type {
   FontAuditResult,
   ExpressionError,
   ExpressionAuditResult,
+  RenderOptions,
 } from "./types";
 
 export const getScanSnapshot = () => invoke<ScanSnapshot>("get_scan_snapshot");
@@ -68,5 +69,5 @@ export const getExpressionLogs = () =>
 export const auditProjectExpressions = (path: string) =>
   invoke<ExpressionAuditResult>("audit_project_expressions", { path });
 
-export const runAerender = (projectPath: string, mfr: boolean = true, cpuPercent?: number, omTemplate?: string, comp?: string) =>
-  invoke<ActionResult>("run_aerender", { projectPath, mfr, cpuPercent, omTemplate, comp });
+export const runAerender = (options: RenderOptions) =>
+  invoke<ActionResult>("run_aerender", { options });

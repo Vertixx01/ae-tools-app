@@ -25,6 +25,7 @@ pub fn run() {
         })
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_fs::init())
         .invoke_handler(tauri::generate_handler![
             commands::get_scan_snapshot,
             commands::get_everything_status,
@@ -46,7 +47,8 @@ pub fn run() {
             commands::audit_project_fonts,
             commands::get_expression_logs,
             commands::audit_project_expressions,
-            commands::run_aerender
+            commands::run_aerender,
+            commands::reveal_in_explorer
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

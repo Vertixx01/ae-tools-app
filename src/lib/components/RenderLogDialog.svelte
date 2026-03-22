@@ -1,8 +1,10 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { scale, fade } from "svelte/transition";
-  import { convertFileSrc } from "@tauri-apps/api/core";
+  import { convertFileSrc, invoke } from "@tauri-apps/api/core";
   import { openPath } from "@tauri-apps/plugin-opener";
+  
+  import { readFile } from "@tauri-apps/plugin-fs";
   
   interface LogEntry {
     message: string;
@@ -19,27 +21,111 @@
   let { projectName, logs, visible, onClose }: Props = $props();
   let logEnd: HTMLDivElement | null = $state(null);
   let mountTime = $state(Date.now());
+  let previewUrl = $state<string | null>(null);
 
   $effect(() => {
     if (visible) mountTime = Date.now();
   });
 
+  const renderStats = $derived.by(() => {
+    let durationSecs = 0;
+    let fps = 30;
+    
+    for (const log of logs) {
+      // Parse Duration: 0;00;08;00
+      const durMatch = log.message.match(/Duration:\s*(\d+);(\d+);(\d+);(\d+)/);
+      if (durMatch) {
+        durationSecs = parseInt(durMatch[1]) * 3600 + parseInt(durMatch[2]) * 60 + parseInt(durMatch[3]);
+        // We'll calculate frames later once we have FPS
+      }
+      
+      // Parse Frame Rate: 29.97
+      const fpsMatch = log.message.match(/Frame Rate:\s*(\d+(\.\d+)?)/);
+      if (fpsMatch) fps = parseFloat(fpsMatch[1]);
+    }
+    
+    const totalFrames = Math.max(1, Math.round(durationSecs * fps));
+    return { totalFrames, fps };
+  });
+
   const progress = $derived.by(() => {
     let latest = 0;
     for (const log of logs) {
-      const match = log.message.match(/PROGRESS:.*\(?\s*(\d+(\.\d+)?)%\)?/);
-      if (match) latest = parseFloat(match[1]);
+      // 1. Check for explicit percentage: PROGRESS: 10%
+      const pctMatch = log.message.match(/PROGRESS:.*\(?\s*(\d+(\.\d+)?)%\)?/);
+      if (pctMatch) {
+        latest = parseFloat(pctMatch[1]);
+        continue;
+      }
+      
+      // 2. Check for frame number: PROGRESS: 0;00;07;29 (240): 1 Seconds
+      const frameMatch = log.message.match(/PROGRESS:.*\((\d+)\):/);
+      if (frameMatch && renderStats.totalFrames > 0) {
+        const currentFrame = parseInt(frameMatch[1]);
+        latest = Math.min(100, (currentFrame / renderStats.totalFrames) * 100);
+      }
     }
     return latest;
   });
 
   const finalVideoPath = $derived.by(() => {
+    let lastMatch = null;
     for (const log of logs) {
-      // Matches both "Finished rendering to" and "Output: "
-      const match = log.message.match(/(?:Finished rendering to|Output:)\s*"(.*)"/i);
-      if (match) return match[1];
+      // Robustly capture paths with spaces, handling optional quotes and line breaks
+      const match = log.message.match(/(?:Finished rendering to|Output To:|Output:)\s*"?([^"\r\n]+)"?/i);
+      if (match) lastMatch = match[1].trim();
     }
-    return null;
+    return lastMatch;
+  });
+
+  const isFinished = $derived.by(() => {
+    // Explicit success markers
+    const hasMarker = logs.some(l => 
+      l.message.toLowerCase().includes("finished composition") || 
+      l.message.toLowerCase().includes("total time elapsed") || 
+      l.message.toLowerCase().includes("rendered 1 file") ||
+      l.message.toLowerCase().includes("has finished")
+    );
+    
+    if (hasMarker) return true;
+    
+    // Fallback: If progress is 100% and we haven't had a frame update in a few logs
+    if (progress >= 100 && logs.length > 0) {
+      const lastSignificantLogs = logs.slice(-5);
+      return lastSignificantLogs.every(l => !l.message.match(/PROGRESS:.*\((\d+)\):/));
+    }
+    
+    return false;
+  });
+
+  let videoEl = $state<HTMLVideoElement | null>(null);
+
+  $effect(() => {
+    if (isFinished && finalVideoPath && !previewUrl) {
+      // Use Blob to bypass convertFileSrc cache/initialization issues
+      (async () => {
+        try {
+          // Small delay to ensure AE released the file
+          await new Promise(r => setTimeout(r, 400));
+          const bytes = await readFile(finalVideoPath);
+          const blob = new Blob([bytes], { type: "video/mp4" });
+          previewUrl = URL.createObjectURL(blob);
+        } catch (e) {
+          console.error("Failed to load preview as blob:", e);
+          // Fallback to standard URL
+          previewUrl = convertFileSrc(finalVideoPath);
+        }
+      })();
+    }
+  });
+
+  $effect(() => {
+    return () => {
+      // Cleanup
+      if (previewUrl && previewUrl.startsWith("blob:")) {
+        URL.revokeObjectURL(previewUrl);
+      }
+    };
   });
 
   $effect(() => {
@@ -90,8 +176,8 @@
         
         <div class="mt-4 h-1.5 w-full overflow-hidden rounded-full bg-white/5">
            <div 
-             class="h-full bg-emerald-400 transition-all duration-300 {progress === 0 && logs.length > 0 ? 'animate-pulse w-full' : ''}"
-             style="width: {progress === 0 && logs.length > 0 ? '100%' : progress + '%'}"
+             class="h-full bg-emerald-400 transition-all duration-300"
+             style="width: {progress}%"
            ></div>
         </div>
       </div>
@@ -117,13 +203,15 @@
            </div>
            
            <div class="flex-1 flex flex-col items-center justify-center p-6 text-center">
-             {#if finalVideoPath}
+             {#if previewUrl && isFinished}
                <div class="w-full aspect-video rounded-2xl overflow-hidden bg-black shadow-xl ring-1 ring-white/10">
                  <video 
-                   src={convertFileSrc(finalVideoPath)} 
+                   bind:this={videoEl}
+                   src={previewUrl} 
                    controls 
                    class="w-full h-full"
                    autoplay
+                   muted
                  >
                    <track kind="captions" />
                  </video>
@@ -131,8 +219,13 @@
                <p class="mt-4 text-xs mono text-(--muted) break-all px-4">{finalVideoPath}</p>
              {:else}
                 <div class="flex flex-col items-center gap-4 opacity-40">
-                  <div class="h-12 w-12 animate-pulse rounded-full border-2 border-white/20 border-t-white/40"></div>
-                  <p class="text-sm">Waiting for render to complete...</p>
+                  <div class="h-12 w-12 animate-spin rounded-full border-4 border-white/10 border-t-emerald-400"></div>
+                  <p class="text-sm font-medium">
+                    {progress > 0 ? `Rendering... ${Math.round(progress)}%` : "Initializing Render..."}
+                  </p>
+                  {#if finalVideoPath}
+                    <p class="text-[10px] mono max-w-[200px] truncate opacity-50">{finalVideoPath}</p>
+                  {/if}
                 </div>
              {/if}
            </div>
@@ -140,10 +233,10 @@
       </div>
 
       <div class="border-t border-white/5 bg-white/2 px-6 py-4 flex items-center justify-end gap-3">
-        {#if finalVideoPath}
+        {#if finalVideoPath && isFinished}
           <button 
             class="rounded-full bg-emerald-500 px-6 py-2 text-sm font-bold text-slate-950 transition hover:bg-emerald-400 hover:scale-[1.02] active:scale-[0.98]"
-            onclick={() => openPath(finalVideoPath!)}
+            onclick={() => invoke("reveal_in_explorer", { path: finalVideoPath })}
           >
             Reveal in Explorer
           </button>
